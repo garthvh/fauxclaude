@@ -1,5 +1,5 @@
-# claude-local.ps1 — run Claude Code against your local Ollama via the shim (Windows).
-# Starts the shim in the background if it isn't already running, then launches claude.
+# claude-local.ps1 — run Claude Code against your local Ollama via FauxClaude (Windows).
+# Starts FauxClaude in the background if it isn't already running, then launches claude.
 #
 #   .\claude-local.ps1                # interactive session
 #   .\claude-local.ps1 -p "fix bug"   # any claude args pass through
@@ -17,7 +17,7 @@ function Test-Shim {
 }
 
 if (-not (Test-Shim)) {
-    Write-Host "[claude-local] starting shim on :$ShimPort..."
+    Write-Host "[claude-local] starting FauxClaude on :$ShimPort..."
     $env:PORT = $ShimPort
     Start-Process -WindowStyle Hidden -FilePath "node" `
         -ArgumentList "`"$Dir\server.mjs`"" `

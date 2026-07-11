@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# claude-local — run Claude Code against your local Ollama via the shim (macOS/Linux).
-# Starts the shim in the background if it isn't already running, then launches claude.
+# claude-local — run Claude Code against your local Ollama via FauxClaude (macOS/Linux).
+# Starts FauxClaude in the background if it isn't already running, then launches claude.
 #
 #   ./claude-local                # interactive session
 #   ./claude-local -p "fix bug"   # any claude args pass through
@@ -13,7 +13,7 @@ SHIM_URL="http://127.0.0.1:${SHIM_PORT}"
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 if ! curl -sf --max-time 1 "${SHIM_URL}/health" > /dev/null 2>&1; then
-  echo "[claude-local] starting shim on :${SHIM_PORT}..."
+  echo "[claude-local] starting FauxClaude on :${SHIM_PORT}..."
   PORT="$SHIM_PORT" nohup node "$DIR/server.mjs" >> "$DIR/shim.log" 2>&1 &
   for _ in $(seq 1 20); do
     curl -sf --max-time 1 "${SHIM_URL}/health" > /dev/null 2>&1 && break

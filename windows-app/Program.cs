@@ -1,5 +1,5 @@
 // FauxClaude — 100% locally sourced Claude. Windows system tray app.
-// Owns the Node shim process: start/stop, mode toggle, dashboard, and a
+// Owns the FauxClaude server process: start/stop, mode toggle, dashboard, and a
 // one-click Claude Code terminal pointed at the shim.
 //
 // Build:   dotnet publish -c Release -r win-x64 --self-contained false

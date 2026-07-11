@@ -1,5 +1,5 @@
 // FauxClaude — 100% locally sourced Claude. macOS menu bar app (SwiftUI).
-// Owns the Node shim process: start/stop, mode toggle, dashboard, and a
+// Owns the FauxClaude server process: start/stop, mode toggle, dashboard, and a
 // one-click Claude Code terminal pointed at the shim.
 import SwiftUI
 import AppKit
@@ -61,7 +61,7 @@ final class ShimController: ObservableObject {
     func start() {
         guard process == nil else { return }
         guard let node = findNode() else {
-            alert("Node.js not found", "The shim needs Node 18+. Install it with:\n\nbrew install node")
+            alert("Node.js not found", "FauxClaude needs Node 18+. Install it with:\n\nbrew install node")
             return
         }
         guard let serverJS = Bundle.main.path(forResource: "server", ofType: "mjs") else {
@@ -91,7 +91,7 @@ final class ShimController: ObservableObject {
             try p.run()
             process = p
         } catch {
-            alert("Failed to start shim", error.localizedDescription)
+            alert("Failed to start FauxClaude", error.localizedDescription)
         }
     }
 
