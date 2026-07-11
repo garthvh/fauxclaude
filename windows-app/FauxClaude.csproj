@@ -17,6 +17,14 @@
     <Content Include="..\server.mjs" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="..\dashboard.html" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="..\assets\FauxClaude.ico" Link="FauxClaude.ico" CopyToOutputDirectory="PreserveNewest" />
+    <!-- images the shim serves at /llama.png, /logo.png, /favicon.* — the header
+         llama and the browser favicon. Must land in an assets\ subfolder next to
+         the exe, where server.mjs looks (dirname(dashboard.html)/assets). Without
+         these the dashboard llama 404s and its onerror handler hides it. -->
+    <Content Include="..\assets\llama.png" Link="assets\llama.png" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\assets\logo.png" Link="assets\logo.png" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\assets\favicon.png" Link="assets\favicon.png" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\assets\favicon.ico" Link="assets\favicon.ico" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>
