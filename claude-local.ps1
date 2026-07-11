@@ -42,7 +42,8 @@ $env:ANTHROPIC_BASE_URL = $ShimUrl
 $env:CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC = "1"
 if (-not $env:MAX_THINKING_TOKENS) { $env:MAX_THINKING_TOKENS = "1024" }  # low thinking
 
-# Default to Haiku + low thinking (light/snappy for a local model).
-$model = if ($env:CLAUDE_LOCAL_MODEL) { $env:CLAUDE_LOCAL_MODEL } else { "haiku" }
-& claude --model $model @args
+# Use whatever model you've set in Claude Code (no --model), unless you pin one
+# via CLAUDE_LOCAL_MODEL.
+if ($env:CLAUDE_LOCAL_MODEL) { & claude --model $env:CLAUDE_LOCAL_MODEL @args }
+else { & claude @args }
 exit $LASTEXITCODE

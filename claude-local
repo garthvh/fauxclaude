@@ -14,9 +14,9 @@ DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 if ! curl -sf --max-time 1 "${SHIM_URL}/health" > /dev/null 2>&1; then
   echo "[claude-local] starting FauxClaude on :${SHIM_PORT}..."
-  # Route the Haiku tier (this launcher uses --model haiku) to a small fast model
-  # for ~2x speed; Opus/Sonnet keep the larger quality model. Both are ignored by
-  # the shim if not installed. Override MODEL_MAP / OLLAMA_MODEL to change routing.
+  # Route the Haiku tier (Claude Code's background calls) to a small fast model for
+  # ~2x speed; Opus/Sonnet keep the larger quality model. Both are ignored by the
+  # shim if not installed. Override MODEL_MAP / OLLAMA_MODEL to change routing.
   PORT="$SHIM_PORT" \
     MODEL_MAP="${MODEL_MAP:-{\"claude-haiku-4-5\":\"qwen2.5-coder:7b\"}}" \
     OLLAMA_MODEL="${OLLAMA_MODEL:-qwen2.5-coder:14b}" \
@@ -39,6 +39,10 @@ export ANTHROPIC_BASE_URL="$SHIM_URL"
 export CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1
 export MAX_THINKING_TOKENS="${MAX_THINKING_TOKENS:-1024}"   # low thinking; override to taste
 
-# Default to Haiku + low thinking (light/snappy for a local model); pass your
-# own --model to override.
-exec claude --model "${CLAUDE_LOCAL_MODEL:-haiku}" "$@"
+# Use whatever model you've set in Claude Code (no --model), unless you pin one
+# via CLAUDE_LOCAL_MODEL. The shim still routes each tier per your model map.
+if [ -n "${CLAUDE_LOCAL_MODEL:-}" ]; then
+  exec claude --model "$CLAUDE_LOCAL_MODEL" "$@"
+else
+  exec claude "$@"
+fi
