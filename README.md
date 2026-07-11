@@ -205,3 +205,11 @@ Or use `hey`/`k6`/`vegeta` against `POST /v1/messages` with a non-streaming body
 - Server tools (`web_search` etc.) in the `tools` array are silently dropped.
 - Tool-call quality depends entirely on the Ollama model — pick one with tool support
   (llama3.1+, qwen2.5, mistral-nemo) if your frontend relies on tool use.
+
+## License
+
+FauxClaude is free software licensed under the **GNU General Public License v3.0** —
+see [LICENSE](LICENSE). You may use, study, share, and modify it; derivative works
+must remain under the GPLv3.
+
+Copyright © 2026 Garth Vander Houwen
