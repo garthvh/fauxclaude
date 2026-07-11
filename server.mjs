@@ -38,7 +38,18 @@ const MOCK = process.env.MOCK === "1";
 const MOCK_DELAY_MS = Number(process.env.MOCK_DELAY_MS || 15);
 const MOCK_TOKENS = Number(process.env.MOCK_TOKENS || 60);
 const LOG = process.env.LOG === "1";
+// Slot size, capped by the model's trained context (qwen2.5-coder = 32768; larger
+// values are clamped). The bigger lever for interactive latency is keeping
+// OLLAMA_NUM_PARALLEL=1: extra parallel slots make consecutive turns round-robin
+// onto empty slots, forcing a full re-prefill of the whole ~20-30k-token Claude
+// Code prompt (~100s on a 14b). One slot means every turn reuses the previous
+// prefix and only prefills the new tokens. Raise parallel only for load tests.
 const NUM_CTX = Number(process.env.NUM_CTX || 32768);
+// Prompt-eval (prefill) batch size. Claude Code prompts are big (~20-30k tokens),
+// and prefill is the dominant local-latency cost; a larger batch speeds it up.
+// Ollama otherwise picks a conservative 1024 for larger models. Reloads the model
+// once when it changes, like num_ctx.
+const NUM_BATCH = Number(process.env.NUM_BATCH || 2048);
 // How long Ollama keeps the model loaded. Default -1 = forever, so you never pay a
 // cold reload after an idle gap (the model load is the worst local-model latency).
 // Override with a duration ("30m") or seconds ("0" unloads immediately). Numeric
@@ -435,7 +446,7 @@ async function handleOllama(res, body, claudeModel, msgId, inputTokens, rec) {
     tools: anthropicToolsToOllama(body.tools),
     stream: !!body.stream,
     keep_alive: KEEP_ALIVE,
-    options: { num_ctx: NUM_CTX },
+    options: { num_ctx: NUM_CTX, num_batch: NUM_BATCH },
   };
   if (body.max_tokens) ollamaReq.options.num_predict = body.max_tokens;
   if (body.temperature != null) ollamaReq.options.temperature = body.temperature;
