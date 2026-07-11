@@ -19,6 +19,10 @@ function Test-Shim {
 if (-not (Test-Shim)) {
     Write-Host "[claude-local] starting FauxClaude on :$ShimPort..."
     $env:PORT = $ShimPort
+    # Route the Haiku tier to a small fast model (~2x); Opus/Sonnet keep the
+    # larger model. Both ignored by the shim if not installed.
+    if (-not $env:MODEL_MAP) { $env:MODEL_MAP = '{"claude-haiku-4-5":"qwen2.5-coder:7b"}' }
+    if (-not $env:OLLAMA_MODEL) { $env:OLLAMA_MODEL = "qwen2.5-coder:14b" }
     Start-Process -WindowStyle Hidden -FilePath "node" `
         -ArgumentList "`"$Dir\server.mjs`"" `
         -RedirectStandardOutput "$Dir\shim.log" -RedirectStandardError "$Dir\shim.err.log"

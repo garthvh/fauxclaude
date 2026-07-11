@@ -163,6 +163,31 @@ Set expectations: local models are far below real Claude at agentic coding. Simp
 edits, explanations, and commit messages work well; long multi-step tool sessions
 degrade with model size. That's the trade for free.
 
+## Making it faster (simulation / load testing)
+
+Generation speed is **memory-bandwidth bound** — each token streams the model's
+weights through memory once — so the model size, not the front-end, sets the pace.
+Swapping Ollama for llama.cpp directly does **not** help (Ollama *is* llama.cpp
+underneath); flash attention is a wash on Apple Silicon. The levers that actually
+move the needle:
+
+- **Smaller model = ~2× (default).** The launcher/terminal and sims use the Haiku
+  tier, which FauxClaude routes to `qwen2.5-coder:7b` (~60 tok/s vs ~32 for the
+  14b). Opus/Sonnet keep `qwen2.5-coder:14b` for quality. Change the routing with
+  `MODEL_MAP` / `OLLAMA_MODEL` (a tier pointing at a model you haven't pulled falls
+  back automatically). For an even faster sim, pull a 3b (`qwen2.5-coder:3b`,
+  `llama3.2:3b`) and map Haiku to it.
+- **Concurrency batching for many parallel requests.** Ollama defaults
+  `OLLAMA_NUM_PARALLEL` to 1 for a 14b, so a sim firing N requests at once
+  *serializes* them. Raise it and the GPU batches them, multiplying aggregate
+  throughput. On the macOS Ollama app: `launchctl setenv OLLAMA_NUM_PARALLEL 4`,
+  then quit & reopen Ollama. (Each slot needs its own KV cache — you have the RAM;
+  verify stability under your concurrency, some ggml/Metal builds have had
+  concurrency bugs.)
+- **Pure load, no model?** Mock mode (`MOCK=1` / the app's Mock Mode toggle)
+  returns deterministic streamed responses with zero inference — unlimited req/s.
+  Use it when you're stress-testing the client/shim/harness rather than the model.
+
 ## Live dashboard
 
 Open **http://127.0.0.1:11435/** in any browser while the shim is running. It shows,

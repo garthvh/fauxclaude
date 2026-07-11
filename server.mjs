@@ -80,14 +80,24 @@ function estimateTokens(obj) {
 }
 
 async function resolveOllamaModel(claudeModel) {
-  if (MODEL_MAP[claudeModel]) return MODEL_MAP[claudeModel];
-  if (process.env.OLLAMA_MODEL) return process.env.OLLAMA_MODEL;
   // Re-resolve on every request (~1ms against localhost) so pulling/deleting
   // models in Ollama takes effect without restarting the shim.
   const resp = await fetch(`${OLLAMA_URL}/api/tags`);
   const tags = await resp.json();
-  if (!tags.models?.length) throw new Error("No models installed in Ollama — run `ollama pull <model>`");
-  const picked = tags.models[0].name;
+  const installed = (tags.models || []).map((m) => m.name);
+  if (!installed.length) throw new Error("No models installed in Ollama — run `ollama pull <model>`");
+
+  // Both the per-tier MODEL_MAP entry and the OLLAMA_MODEL default win only if
+  // that model is actually installed — a mapping/default to a model that isn't
+  // pulled falls through instead of hard-erroring (handy when swapping models).
+  const has = (name) => name && (installed.includes(name) || installed.includes(name + ":latest"));
+
+  const mapped = MODEL_MAP[claudeModel];
+  if (has(mapped)) return mapped;
+
+  if (has(process.env.OLLAMA_MODEL)) return process.env.OLLAMA_MODEL;
+
+  const picked = installed[0];
   if (picked !== defaultOllamaModel) {
     defaultOllamaModel = picked;
     console.log(`[fauxclaude] defaulting to ollama model: ${picked}`);

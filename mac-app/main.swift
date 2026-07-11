@@ -78,6 +78,16 @@ final class ShimController: ObservableObject {
         var env = ProcessInfo.processInfo.environment
         env["PORT"] = String(port)
         env["MOCK"] = mockMode ? "1" : "0"
+        // Route the Haiku tier (what the launcher terminal + sims use) to a small,
+        // fast model for ~2x speed; Opus/Sonnet keep the larger quality model.
+        // Both are ignored by the shim if the model isn't installed, so this is
+        // safe when either hasn't been pulled.
+        if env["MODEL_MAP"] == nil {
+            env["MODEL_MAP"] = #"{"claude-haiku-4-5":"qwen2.5-coder:7b"}"#
+        }
+        if env["OLLAMA_MODEL"] == nil {
+            env["OLLAMA_MODEL"] = "qwen2.5-coder:14b"   // default for non-Haiku tiers
+        }
         p.environment = env
         p.standardOutput = log
         p.standardError = log
