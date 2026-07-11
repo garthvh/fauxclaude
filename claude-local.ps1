@@ -36,6 +36,9 @@ Write-Host "[claude-local] dashboard: $ShimUrl/"
 Remove-Item Env:ANTHROPIC_API_KEY, Env:ANTHROPIC_AUTH_TOKEN -ErrorAction SilentlyContinue
 $env:ANTHROPIC_BASE_URL = $ShimUrl
 $env:CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC = "1"
+if (-not $env:MAX_THINKING_TOKENS) { $env:MAX_THINKING_TOKENS = "1024" }  # low thinking
 
-& claude @args
+# Default to Haiku + low thinking (light/snappy for a local model).
+$model = if ($env:CLAUDE_LOCAL_MODEL) { $env:CLAUDE_LOCAL_MODEL } else { "haiku" }
+& claude --model $model @args
 exit $LASTEXITCODE

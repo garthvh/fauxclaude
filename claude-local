@@ -31,5 +31,8 @@ echo "[claude-local] dashboard: ${SHIM_URL}/"
 unset ANTHROPIC_API_KEY ANTHROPIC_AUTH_TOKEN
 export ANTHROPIC_BASE_URL="$SHIM_URL"
 export CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1
+export MAX_THINKING_TOKENS="${MAX_THINKING_TOKENS:-1024}"   # low thinking; override to taste
 
-exec claude "$@"
+# Default to Haiku + low thinking (light/snappy for a local model); pass your
+# own --model to override.
+exec claude --model "${CLAUDE_LOCAL_MODEL:-haiku}" "$@"
