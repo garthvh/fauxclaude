@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+# claude-local — run Claude Code against your local Ollama via the shim (macOS/Linux).
+# Starts the shim in the background if it isn't already running, then launches claude.
+#
+#   ./claude-local                # interactive session
+#   ./claude-local -p "fix bug"   # any claude args pass through
+#
+# Env overrides: SHIM_PORT, OLLAMA_URL, OLLAMA_MODEL, MODEL_MAP, NUM_CTX, MOCK
+set -euo pipefail
+
+SHIM_PORT="${SHIM_PORT:-11435}"
+SHIM_URL="http://127.0.0.1:${SHIM_PORT}"
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+if ! curl -sf --max-time 1 "${SHIM_URL}/health" > /dev/null 2>&1; then
+  echo "[claude-local] starting shim on :${SHIM_PORT}..."
+  PORT="$SHIM_PORT" nohup node "$DIR/server.mjs" >> "$DIR/shim.log" 2>&1 &
+  for _ in $(seq 1 20); do
+    curl -sf --max-time 1 "${SHIM_URL}/health" > /dev/null 2>&1 && break
+    sleep 0.25
+  done
+fi
+
+if [ "${MOCK:-0}" != "1" ] && ! curl -sf --max-time 2 "${OLLAMA_URL:-http://localhost:11434}/api/tags" > /dev/null 2>&1; then
+  echo "[claude-local] WARNING: Ollama doesn't appear to be running (ollama serve)." >&2
+fi
+
+echo "[claude-local] dashboard: ${SHIM_URL}/"
+export ANTHROPIC_BASE_URL="$SHIM_URL"
+export ANTHROPIC_API_KEY="sk-local-ollama"
+export CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1
+
+exec claude "$@"

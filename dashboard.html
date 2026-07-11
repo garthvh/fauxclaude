@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ollama-claude-shim</title>
+<style>
+  :root {
+    --surface-1: #fcfcfb; --page: #f9f9f7;
+    --ink-1: #0b0b0b; --ink-2: #52514e; --ink-muted: #898781;
+    --grid: #e1e0d9; --border: rgba(11,11,11,0.10);
+    --series-1: #2a78d6;
+    --good: #0ca30c; --critical: #d03b3b; --warning: #fab219;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --surface-1: #1a1a19; --page: #0d0d0d;
+      --ink-1: #ffffff; --ink-2: #c3c2b7; --ink-muted: #898781;
+      --grid: #2c2c2a; --border: rgba(255,255,255,0.10);
+      --series-1: #3987e5;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 20px; background: var(--page); color: var(--ink-1);
+    font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  header { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; margin-bottom: 16px; }
+  h1 { font-size: 17px; margin: 0; font-weight: 650; }
+  .chip {
+    font-size: 12px; color: var(--ink-2); background: var(--surface-1);
+    border: 1px solid var(--border); border-radius: 999px; padding: 2px 10px;
+  }
+  .chip b { color: var(--ink-1); font-weight: 600; }
+  #conn { margin-left: auto; font-size: 12px; color: var(--ink-muted); }
+
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 16px; }
+  .tile {
+    background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px;
+    padding: 12px 14px; min-height: 84px; display: flex; flex-direction: column; justify-content: space-between;
+  }
+  .tile .label { font-size: 12px; color: var(--ink-2); }
+  .tile .value { font-size: 26px; font-weight: 650; letter-spacing: -0.01em; }
+  .tile svg { display: block; width: 100%; height: 34px; }
+
+  .card { background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px; overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 7px 12px; border-top: 1px solid var(--grid); white-space: nowrap; }
+  thead th { border-top: none; font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em;
+             color: var(--ink-muted); font-weight: 600; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  td.preview { max-width: 340px; overflow: hidden; text-overflow: ellipsis; color: var(--ink-2); }
+  td.model span.arrow { color: var(--ink-muted); }
+  .status { display: inline-flex; align-items: center; gap: 6px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+  .status.active .dot { background: var(--series-1); animation: pulse 1.2s ease-in-out infinite; }
+  .status.done .dot { background: var(--good); }
+  .status.error .dot { background: var(--critical); }
+  .status .word { color: var(--ink-2); font-size: 12px; }
+  @keyframes pulse { 50% { opacity: 0.35; } }
+  .empty { padding: 28px; text-align: center; color: var(--ink-muted); }
+</style>
+</head>
+<body>
+<header>
+  <h1>ollama-claude-shim</h1>
+  <span class="chip">mode <b id="mode">…</b></span>
+  <span class="chip" id="backend-chip">backend <b id="backend">…</b></span>
+  <span class="chip">model <b id="model">…</b></span>
+  <span id="conn">connecting…</span>
+</header>
+
+<div class="tiles">
+  <div class="tile"><span class="label">Requests</span><span class="value" id="t-req">0</span></div>
+  <div class="tile"><span class="label">Active now</span><span class="value" id="t-active">0</span></div>
+  <div class="tile"><span class="label">Tokens in</span><span class="value" id="t-in">0</span></div>
+  <div class="tile"><span class="label">Tokens out</span><span class="value" id="t-out">0</span></div>
+  <div class="tile">
+    <span class="label">Output tokens/s — last 60s</span>
+    <span class="value" id="t-rate">0</span>
+    <svg id="spark" viewBox="0 0 240 34" preserveAspectRatio="none" aria-hidden="true">
+      <polyline id="spark-line" fill="none" stroke="var(--series-1)" stroke-width="2"
+                stroke-linejoin="round" stroke-linecap="round" points=""/>
+    </svg>
+  </div>
+</div>
+
+<div class="card">
+  <table>
+    <thead><tr>
+      <th>Time</th><th>Status</th><th>Model</th><th>Stream</th>
+      <th class="num">In</th><th class="num">Out</th><th class="num">ms</th><th>Last user message</th>
+    </tr></thead>
+    <tbody id="rows"><tr><td colspan="8" class="empty">Waiting for requests… point a client at this
+      server with <code>ANTHROPIC_BASE_URL</code>.</td></tr></tbody>
+  </table>
+</div>
+
+<script>
+const records = new Map();   // id -> record
+let order = [];              // ids, newest first
+const MAX_ROWS = 100;
+
+const $ = (id) => document.getElementById(id);
+const fmt = (n) => (n >= 10000 ? (n / 1000).toFixed(1) + "k" : String(n ?? 0));
+
+function upsert(rec) {
+  if (!records.has(rec.id)) order.unshift(rec.id);
+  records.set(rec.id, rec);
+  if (order.length > MAX_ROWS) { for (const id of order.splice(MAX_ROWS)) records.delete(id); }
+  render();
+}
+
+function statusCell(rec) {
+  const cls = rec.status === "error" ? "error" : rec.status === "done" ? "done" : "active";
+  const word = rec.status === "active" ? (rec.stream ? "streaming" : "working") : rec.status;
+  return `<span class="status ${cls}"><span class="dot"></span><span class="word">${word}</span></span>`;
+}
+
+function esc(s) { return String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
+
+function render() {
+  let active = 0, tin = 0, tout = 0;
+  const html = [];
+  for (const id of order) {
+    const r = records.get(id);
+    if (r.status === "active") active++;
+    tin += r.inputTokens || 0; tout += r.outputTokens || 0;
+    html.push(`<tr>
+      <td>${new Date(r.ts).toLocaleTimeString()}</td>
+      <td>${statusCell(r)}</td>
+      <td class="model">${esc(r.model)}${r.ollamaModel ? ` <span class="arrow">→</span> ${esc(r.ollamaModel)}` : ""}</td>
+      <td>${r.stream ? "yes" : "no"}</td>
+      <td class="num">${fmt(r.inputTokens)}</td>
+      <td class="num">${fmt(r.outputTokens)}</td>
+      <td class="num">${r.durationMs != null ? fmt(r.durationMs) : "…"}</td>
+      <td class="preview" title="${esc(r.error || r.preview)}">${esc(r.error || r.preview)}</td>
+    </tr>`);
+  }
+  $("rows").innerHTML = html.join("") ||
+    `<tr><td colspan="8" class="empty">Waiting for requests…</td></tr>`;
+  $("t-req").textContent = fmt(order.length);
+  $("t-active").textContent = fmt(active);
+  $("t-in").textContent = fmt(tin);
+  $("t-out").textContent = fmt(tout);
+}
+
+// --- tokens/sec sparkline: sample total output tokens once per second -------
+const buckets = new Array(60).fill(0);
+let lastTotal = 0, primed = false;
+setInterval(() => {
+  let total = 0;
+  for (const r of records.values()) total += r.outputTokens || 0;
+  const rate = primed ? Math.max(0, total - lastTotal) : 0;
+  lastTotal = total; primed = true;
+  buckets.push(rate); buckets.shift();
+  $("t-rate").textContent = fmt(rate);
+  const max = Math.max(1, ...buckets);
+  const pts = buckets.map((v, i) => `${(i / 59) * 240},${32 - (v / max) * 28}`).join(" ");
+  $("spark-line").setAttribute("points", pts);
+}, 1000);
+
+// --- live feed ---------------------------------------------------------------
+function connect() {
+  const es = new EventSource("/events");
+  es.onopen = () => { $("conn").textContent = "live"; };
+  es.onerror = () => { $("conn").textContent = "reconnecting…"; };
+  es.onmessage = (e) => {
+    const msg = JSON.parse(e.data);
+    if (msg.type === "snapshot") {
+      records.clear(); order = [];
+      for (const rec of msg.records) upsert(rec);
+      $("mode").textContent = msg.config.mock ? "mock" : "ollama";
+      $("backend").textContent = msg.config.mock ? "built-in" : msg.config.ollama_url;
+      $("model").textContent = msg.config.default_model || "(auto)";
+      render();
+    } else if (msg.type === "update") {
+      upsert(msg.record);
+    }
+  };
+}
+connect();
+</script>
+</body>
+</html>

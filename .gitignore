@@ -1,0 +1,7 @@
+# build output — rebuild with mac-app/build-app.sh
+OllamaClaudeShim.app/
+
+# runtime artifacts
+shim.log
+*.log
+.DS_Store
