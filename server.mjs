@@ -590,10 +590,10 @@ const server = http.createServer(async (req, res) => {
       return res.end(JSON.stringify(modelObject(id)));
     }
 
-    if (req.method === "GET" && (url.pathname === "/logo.png" || url.pathname === "/llama.png")) {
+    if (req.method === "GET" && /^\/(logo|llama|favicon)\.(png|ico)$/.test(url.pathname)) {
       const img = path.join(path.dirname(DASHBOARD_HTML), "assets", path.basename(url.pathname));
       if (!fs.existsSync(img)) return anthropicError(res, 404, "not_found_error", "image not installed");
-      res.writeHead(200, { "content-type": "image/png" });
+      res.writeHead(200, { "content-type": url.pathname.endsWith(".ico") ? "image/x-icon" : "image/png" });
       return res.end(fs.readFileSync(img));
     }
 
