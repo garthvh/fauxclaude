@@ -24,6 +24,16 @@ final class ShimController: ObservableObject {
         }
     }
 
+    // OLLAMA_NUM_PARALLEL: 1 = interactive (one KV slot, so the prompt prefix stays
+    // cached and turn 2+ are fast); higher = simulation/load testing (parallel
+    // slots, but each turn re-prefills the whole prompt). Read from the live env.
+    @Published var parallel: Int = ShimController.readParallel() {
+        didSet {
+            guard oldValue != parallel else { return }
+            applyParallel(parallel)
+        }
+    }
+
     private var process: Process?
     private var timer: Timer?
 
@@ -34,6 +44,11 @@ final class ShimController: ObservableObject {
     var modelMapURL: URL {
         FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent(".fauxclaude-model-map.json")
+    }
+    private let parallelAgentLabel = "com.garthvh.fauxclaude.ollama-parallel"
+    private var parallelAgentURL: URL {
+        FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Library/LaunchAgents/\(parallelAgentLabel).plist")
     }
 
     private init() {
@@ -165,6 +180,75 @@ final class ShimController: ObservableObject {
         NSWorkspace.shared.open(modelMapURL)
     }
 
+    // MARK: Ollama parallelism
+
+    // Read the live OLLAMA_NUM_PARALLEL (defaults to 1 if unset).
+    private static func readParallel() -> Int {
+        let p = Process()
+        p.executableURL = URL(fileURLWithPath: "/bin/launchctl")
+        p.arguments = ["getenv", "OLLAMA_NUM_PARALLEL"]
+        let pipe = Pipe()
+        p.standardOutput = pipe
+        try? p.run()
+        p.waitUntilExit()
+        let s = String(data: pipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8)?
+            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return Int(s) ?? 1
+    }
+
+    // Persist the value (LaunchAgent, so it survives login) and restart Ollama so
+    // `serve` re-reads it. Killing only `ollama serve` won't do — the menu-bar app
+    // respawns it with its own stale env, so we quit the whole app and reopen it.
+    // The shim keeps running and auto-warms the model once Ollama is back.
+    func applyParallel(_ n: Int) {
+        writeParallelAgent(n)
+        ollamaStatus = "restarting for parallel = \(n)…"
+        let label = parallelAgentLabel
+        let script = """
+        launchctl setenv OLLAMA_NUM_PARALLEL \(n)
+        launchctl unload ~/Library/LaunchAgents/\(label).plist 2>/dev/null
+        launchctl load ~/Library/LaunchAgents/\(label).plist 2>/dev/null
+        osascript -e 'quit app "Ollama"' 2>/dev/null
+        sleep 2
+        pkill -9 -f 'Ollama.app' 2>/dev/null
+        sleep 1
+        open -a Ollama
+        """
+        DispatchQueue.global().async {
+            let p = Process()
+            p.executableURL = URL(fileURLWithPath: "/bin/zsh")
+            p.arguments = ["-lc", script]
+            try? p.run()
+            p.waitUntilExit()
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1) { self.poll() }
+        }
+    }
+
+    private func writeParallelAgent(_ n: Int) {
+        try? FileManager.default.createDirectory(
+            at: parallelAgentURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+        let plist = """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+        <plist version="1.0">
+        <dict>
+        \t<key>Label</key>
+        \t<string>\(parallelAgentLabel)</string>
+        \t<key>ProgramArguments</key>
+        \t<array>
+        \t\t<string>/bin/launchctl</string>
+        \t\t<string>setenv</string>
+        \t\t<string>OLLAMA_NUM_PARALLEL</string>
+        \t\t<string>\(n)</string>
+        \t</array>
+        \t<key>RunAtLoad</key>
+        \t<true/>
+        </dict>
+        </plist>
+        """
+        try? plist.write(to: parallelAgentURL, atomically: true, encoding: .utf8)
+    }
+
     // MARK: health polling
 
     private func poll() {
@@ -228,6 +312,10 @@ struct MenuContent: View {
         Button(shim.running ? "Stop FauxClaude" : "Start FauxClaude") { shim.toggle() }
             .keyboardShortcut("s")
         Toggle("Mock Mode (no Ollama, canned replies)", isOn: $shim.mockMode)
+        Picker("Ollama Parallelism", selection: $shim.parallel) {
+            Text("Interactive — 1 slot (fast, cached prefix)").tag(1)
+            Text("Simulation — 4 slots (load testing)").tag(4)
+        }
         Divider()
         Button("Open Dashboard") { shim.openDashboard() }
             .keyboardShortcut("d")
