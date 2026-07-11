@@ -156,7 +156,10 @@ internal sealed class TrayApp : ApplicationContext
     private void RunClaude()
     {
         if (_shim is not { HasExited: false } && !_running) StartShim();
-        var cmd = $"set ANTHROPIC_BASE_URL={ShimUrl}&& set ANTHROPIC_AUTH_TOKEN=sk-local-ollama&& " +
+        // No credential env vars: Claude Code's claude.ai login rides through to
+        // the shim (which ignores auth); setting one alongside a login triggers
+        // Claude Code's auth-conflict warning. Empty `set X=` unsets in cmd.
+        var cmd = $"set ANTHROPIC_API_KEY=&& set ANTHROPIC_AUTH_TOKEN=&& set ANTHROPIC_BASE_URL={ShimUrl}&& " +
                   "set CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1&& claude";
         // prefer Windows Terminal when installed, fall back to plain cmd
         try

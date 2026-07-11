@@ -32,8 +32,9 @@ if ($env:MOCK -ne "1") {
 }
 
 Write-Host "[claude-local] dashboard: $ShimUrl/"
+# No credential env vars: your claude.ai login rides through to the shim.
+Remove-Item Env:ANTHROPIC_API_KEY, Env:ANTHROPIC_AUTH_TOKEN -ErrorAction SilentlyContinue
 $env:ANTHROPIC_BASE_URL = $ShimUrl
-$env:ANTHROPIC_AUTH_TOKEN = "sk-local-ollama"
 $env:CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC = "1"
 
 & claude @args

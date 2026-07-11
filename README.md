@@ -42,11 +42,13 @@ tool use, token counting, huge system prompts), and needs no extra install:
 ANTHROPIC_BASE_URL=http://127.0.0.1:11435 ANTHROPIC_AUTH_TOKEN=sk-test claude
 ```
 
-> Use `ANTHROPIC_AUTH_TOKEN` (not `ANTHROPIC_API_KEY`) with Claude Code — the
-> shim accepts either, but a dummy `ANTHROPIC_API_KEY` triggers Claude Code's
-> "Both claude.ai and ANTHROPIC_API_KEY set" auth-conflict warning when you're
-> also logged into claude.ai. Never `/logout` to silence it — that would break
-> your real claude.ai sessions.
+> **Logged into claude.ai?** Set only `ANTHROPIC_BASE_URL` — no credential env
+> var at all. Your login rides through to the shim (which ignores auth), and
+> Claude Code shows no auth-conflict warning. Setting `ANTHROPIC_API_KEY` or
+> `ANTHROPIC_AUTH_TOKEN` alongside a claude.ai login triggers the "auth may not
+> work as expected" warning — and never `/logout` to silence it, that breaks
+> your real claude.ai sessions. Only set `ANTHROPIC_AUTH_TOKEN=anything` if
+> you're **not** logged in (Claude Code requires some credential to start).
 
 GUI alternatives that accept a custom Anthropic base URL: **Chatbox**, **LibreChat**
 (set the Anthropic reverse-proxy/base URL to `http://127.0.0.1:11435`). CORS is enabled,

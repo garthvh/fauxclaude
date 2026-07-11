@@ -113,8 +113,12 @@ final class ShimController: ObservableObject {
 
     func runClaude() {
         if process == nil && !running { start() }
-        let cmd = "export ANTHROPIC_BASE_URL=\(shimURL); " +
-                  "export ANTHROPIC_AUTH_TOKEN=sk-local-ollama; " +
+        // No credential env vars: Claude Code's existing claude.ai login rides
+        // through to the shim (which ignores auth). Setting ANTHROPIC_API_KEY or
+        // ANTHROPIC_AUTH_TOKEN alongside a claude.ai login triggers Claude Code's
+        // auth-conflict warning, so unset both defensively.
+        let cmd = "unset ANTHROPIC_API_KEY ANTHROPIC_AUTH_TOKEN; " +
+                  "export ANTHROPIC_BASE_URL=\(shimURL); " +
                   "export CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1; claude"
         let script = """
         tell application "Terminal"

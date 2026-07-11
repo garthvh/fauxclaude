@@ -26,8 +26,10 @@ if [ "${MOCK:-0}" != "1" ] && ! curl -sf --max-time 2 "${OLLAMA_URL:-http://loca
 fi
 
 echo "[claude-local] dashboard: ${SHIM_URL}/"
+# No credential env vars: your claude.ai login rides through to the shim
+# (which ignores auth). Not logged in? export ANTHROPIC_AUTH_TOKEN=anything.
+unset ANTHROPIC_API_KEY ANTHROPIC_AUTH_TOKEN
 export ANTHROPIC_BASE_URL="$SHIM_URL"
-export ANTHROPIC_AUTH_TOKEN="sk-local-ollama"
 export CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1
 
 exec claude "$@"
