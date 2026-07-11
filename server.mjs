@@ -559,10 +559,16 @@ const server = http.createServer(async (req, res) => {
 
     return anthropicError(res, 404, "not_found_error", `No route for ${req.method} ${url.pathname}`);
   } catch (err) {
-    const msg = err?.cause?.code === "ECONNREFUSED"
+    const unreachable = err?.cause?.code === "ECONNREFUSED" || err?.message === "fetch failed";
+    const msg = unreachable
       ? `Cannot reach Ollama at ${OLLAMA_URL} — is \`ollama serve\` running?`
       : String(err?.message || err);
-    return anthropicError(res, 500, "api_error", msg);
+    // Setup problems (ollama down / no model pulled) return 404 rather than 5xx:
+    // clients retry 5xx with backoff, which looks like a hang instead of showing
+    // the actionable message.
+    const setupProblem = unreachable || msg.startsWith("No models installed");
+    return anthropicError(res, setupProblem ? 404 : 500,
+                          setupProblem ? "not_found_error" : "api_error", msg);
   }
 });
 
