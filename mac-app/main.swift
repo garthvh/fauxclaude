@@ -195,10 +195,10 @@ struct MenuContent: View {
     @ObservedObject var shim: ShimController
 
     var body: some View {
-        Text(shim.running ? "Shim: running (\(shim.mode)) on :\(shim.port)" : "Shim: stopped")
+        Text(shim.running ? "FauxClaude: running (\(shim.mode)) on :\(shim.port)" : "FauxClaude: stopped")
         Text("Ollama: \(shim.ollamaStatus)")
         Divider()
-        Button(shim.running ? "Stop Shim" : "Start Shim") { shim.toggle() }
+        Button(shim.running ? "Stop FauxClaude" : "Start FauxClaude") { shim.toggle() }
             .keyboardShortcut("s")
         Toggle("Mock Mode (no Ollama, canned replies)", isOn: $shim.mockMode)
         Divider()
@@ -206,9 +206,9 @@ struct MenuContent: View {
             .keyboardShortcut("d")
         Button("Run Claude Code in Terminal") { shim.runClaude() }
             .keyboardShortcut("t")
-        Button("View Shim Log") { shim.openLog() }
+        Button("View Log") { shim.openLog() }
         Divider()
-        Button("Quit (stops shim)") { NSApp.terminate(nil) }
+        Button("Quit (stops FauxClaude)") { NSApp.terminate(nil) }
             .keyboardShortcut("q")
     }
 }

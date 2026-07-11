@@ -29,9 +29,9 @@ internal sealed class TrayApp : ApplicationContext
     private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromMilliseconds(1500) };
 
     private readonly NotifyIcon _tray = new();
-    private readonly ToolStripMenuItem _statusLine = new("Shim: starting…") { Enabled = false };
+    private readonly ToolStripMenuItem _statusLine = new("FauxClaude: starting…") { Enabled = false };
     private readonly ToolStripMenuItem _ollamaLine = new("Ollama: checking…") { Enabled = false };
-    private readonly ToolStripMenuItem _toggleItem = new("Stop Shim");
+    private readonly ToolStripMenuItem _toggleItem = new("Stop FauxClaude");
     private readonly ToolStripMenuItem _mockItem = new("Mock Mode (no Ollama, canned replies)") { CheckOnClick = true };
     private readonly System.Windows.Forms.Timer _timer = new() { Interval = 3000 };
 
@@ -75,9 +75,9 @@ internal sealed class TrayApp : ApplicationContext
 
         menu.Items.Add("Open Dashboard", null, (_, _) => OpenUrl($"{ShimUrl}/"));
         menu.Items.Add("Run Claude Code in Terminal", null, (_, _) => RunClaude());
-        menu.Items.Add("View Shim Log", null, (_, _) => OpenUrl(LogPath));
+        menu.Items.Add("View Log", null, (_, _) => OpenUrl(LogPath));
         menu.Items.Add(new ToolStripSeparator());
-        menu.Items.Add("Exit (stops shim)", null, (_, _) => ExitApp());
+        menu.Items.Add("Exit (stops FauxClaude)", null, (_, _) => ExitApp());
 
         _tray.Icon = SystemIcons.Application;
         _tray.Text = "FauxClaude";
@@ -194,8 +194,8 @@ internal sealed class TrayApp : ApplicationContext
         catch { /* not running */ }
 
         _running = up;
-        _statusLine.Text = up ? $"Shim: running ({mode}) on :{Port}" : "Shim: stopped";
-        _toggleItem.Text = up ? "Stop Shim" : "Start Shim";
+        _statusLine.Text = up ? $"FauxClaude: running ({mode}) on :{Port}" : "FauxClaude: stopped";
+        _toggleItem.Text = up ? "Stop FauxClaude" : "Start FauxClaude";
         _tray.Text = up ? $"FauxClaude — running ({mode})" : "FauxClaude — stopped";
 
         if (MockMode) { _ollamaLine.Text = "Ollama: not needed (mock mode)"; return; }
