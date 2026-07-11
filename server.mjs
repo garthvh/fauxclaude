@@ -26,6 +26,7 @@
 import http from "node:http";
 import crypto from "node:crypto";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -100,6 +101,37 @@ const activity = [];            // capped ring buffer of request records
 const dashClients = new Set();  // open /events SSE responses
 const MAX_ACTIVITY = 200;
 
+// ------------------------------------------- lifetime "tokens saved" counter
+
+// What this traffic would have cost on the real Claude API, priced per request
+// against the Claude model the client asked for. $/MTok input, output.
+function apiRates(model) {
+  const m = String(model || "").toLowerCase();
+  if (m.includes("fable") || m.includes("mythos")) return [10, 50];
+  if (m.includes("opus")) return [5, 25];
+  if (m.includes("haiku")) return [1, 5];
+  return [3, 15]; // sonnet and anything unrecognized
+}
+
+const STATS_FILE = path.join(os.homedir(), ".ollama-claude-shim-stats.json");
+let totals = { requests: 0, inputTokens: 0, outputTokens: 0, costUsd: 0, since: Date.now() };
+try { totals = { ...totals, ...JSON.parse(fs.readFileSync(STATS_FILE, "utf8")) }; } catch { /* first run */ }
+let statsDirty = false;
+setInterval(() => {
+  if (!statsDirty) return;
+  statsDirty = false;
+  try { fs.writeFileSync(STATS_FILE, JSON.stringify(totals)); } catch { /* non-fatal */ }
+}, 5000).unref();
+
+function countSaved(rec) {
+  const [rin, rout] = apiRates(rec.model);
+  totals.requests += 1;
+  totals.inputTokens += rec.inputTokens || 0;
+  totals.outputTokens += rec.outputTokens || 0;
+  totals.costUsd += (rec.inputTokens || 0) / 1e6 * rin + (rec.outputTokens || 0) / 1e6 * rout;
+  statsDirty = true;
+}
+
 // The live feed carries metadata + preview only; full bodies are fetched on
 // demand via GET /requests/:id.
 const publicRec = ({ _start, _lastPush, userMessage, responseText, ...pub }) => pub;
@@ -111,7 +143,7 @@ function appendResponse(rec, text) {
 }
 
 function broadcast(rec) {
-  const line = `data: ${JSON.stringify({ type: "update", record: publicRec(rec) })}\n\n`;
+  const line = `data: ${JSON.stringify({ type: "update", record: publicRec(rec), totals })}\n\n`;
   for (const client of dashClients) client.write(line);
 }
 
@@ -140,6 +172,7 @@ function tick(rec) {
 
 function finish(rec, fields) {
   Object.assign(rec, fields, { durationMs: Date.now() - rec._start });
+  if (rec.status === "done") countSaved(rec); // errors wouldn't have billed on the real API
   broadcast(rec);
 }
 
@@ -571,6 +604,7 @@ const server = http.createServer(async (req, res) => {
           model_map: MODEL_MAP,
         },
         records: activity.map(publicRec),
+        totals,
       })}\n\n`);
       dashClients.add(res);
       req.on("close", () => dashClients.delete(res));

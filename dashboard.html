@@ -41,6 +41,7 @@
   }
   .tile .label { font-size: 12px; color: var(--ink-2); }
   .tile .value { font-size: 26px; font-weight: 650; letter-spacing: -0.01em; }
+  .tile .sub { font-size: 11px; color: var(--ink-muted); }
   .tile svg { display: block; width: 100%; height: 34px; }
 
   .card { background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px; overflow-x: auto; }
@@ -118,6 +119,11 @@
   <div class="tile"><span class="label">Tokens in</span><span class="value" id="t-in">0</span></div>
   <div class="tile"><span class="label">Tokens out</span><span class="value" id="t-out">0</span></div>
   <div class="tile">
+    <span class="label">Saved at Claude API rates</span>
+    <span class="value" id="t-saved">$0.00</span>
+    <span class="sub" id="t-saved-sub">all-time, priced per requested model</span>
+  </div>
+  <div class="tile">
     <span class="label">Output tokens/s — last 60s</span>
     <span class="value" id="t-rate">0</span>
     <svg id="spark" viewBox="0 0 240 34" preserveAspectRatio="none" aria-hidden="true">
@@ -163,6 +169,18 @@ const MAX_ROWS = 100;
 
 const $ = (id) => document.getElementById(id);
 const fmt = (n) => (n >= 10000 ? (n / 1000).toFixed(1) + "k" : String(n ?? 0));
+const fmtMoney = (usd) => usd >= 1000 ? "$" + (usd / 1000).toFixed(2) + "k"
+                        : usd >= 100 ? "$" + usd.toFixed(0)
+                        : usd >= 0.01 || usd === 0 ? "$" + usd.toFixed(2)
+                        : "$" + usd.toFixed(4);
+
+function renderTotals(t) {
+  if (!t) return;
+  $("t-saved").textContent = fmtMoney(t.costUsd || 0);
+  $("t-saved-sub").textContent =
+    `${fmt(t.inputTokens || 0)} in / ${fmt(t.outputTokens || 0)} out over ${fmt(t.requests || 0)} requests` +
+    (t.since ? ` since ${new Date(t.since).toLocaleDateString()}` : "");
+}
 
 function upsert(rec) {
   if (!records.has(rec.id)) order.unshift(rec.id);
@@ -280,6 +298,7 @@ function connect() {
     } else if (msg.type === "update") {
       upsert(msg.record);
     }
+    renderTotals(msg.totals);
   };
 }
 connect();
