@@ -213,6 +213,23 @@ struct MenuContent: View {
     }
 }
 
+// MARK: - Menu bar icon
+
+enum MenuIcon {
+    static let color = load("menubar-llama")
+    static let dim = load("menubar-llama-dim")
+
+    private static func load(_ name: String) -> NSImage {
+        guard let path = Bundle.main.path(forResource: name, ofType: "png"),
+              let img = NSImage(contentsOfFile: path) else {
+            return NSImage(systemSymbolName: "theatermasks.circle", accessibilityDescription: "FauxClaude")!
+        }
+        let height: CGFloat = 19  // menu bar friendly; width follows aspect
+        img.size = NSSize(width: img.size.width / max(img.size.height, 1) * height, height: height)
+        return img
+    }
+}
+
 // MARK: - App
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
@@ -230,7 +247,7 @@ struct FauxClaudeApp: App {
         MenuBarExtra {
             MenuContent(shim: shim)
         } label: {
-            Image(systemName: shim.running ? "theatermasks.circle.fill" : "theatermasks.circle")
+            Image(nsImage: shim.running ? MenuIcon.color : MenuIcon.dim)
         }
     }
 }
