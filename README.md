@@ -186,6 +186,10 @@ move the needle:
   quit & reopen Ollama. Windows: set the `OLLAMA_NUM_PARALLEL` user env var and
   restart Ollama. (Some ggml/Metal builds have had concurrency crashes — start at
   2 and confirm stability.)
+- **Auto warm-up on restart.** When Ollama restarts (reboot, quit/reopen, crash),
+  it unloads every model, so the next request would pay the cold model-load. The
+  shim watches Ollama's reachability and, on a down→up transition, fires a tiny
+  `"hi"` query to pre-load the model your traffic last used — warm before you need it.
 - **Pure load, no model?** Mock mode (`MOCK=1` / the app's Mock Mode toggle)
   returns deterministic streamed responses with zero inference — unlimited req/s.
   Use it when you're stress-testing the client/shim/harness rather than the model.
