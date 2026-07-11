@@ -40,7 +40,6 @@ Write-Host "[claude-local] dashboard: $ShimUrl/"
 Remove-Item Env:ANTHROPIC_API_KEY, Env:ANTHROPIC_AUTH_TOKEN -ErrorAction SilentlyContinue
 $env:ANTHROPIC_BASE_URL = $ShimUrl
 $env:CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC = "1"
-if (-not $env:MAX_THINKING_TOKENS) { $env:MAX_THINKING_TOKENS = "1024" }  # low thinking
 
 # Use whatever model you've set in Claude Code (no --model), unless you pin one
 # via CLAUDE_LOCAL_MODEL.

@@ -127,13 +127,11 @@ final class ShimController: ObservableObject {
         // through to the shim (which ignores auth). Setting ANTHROPIC_API_KEY or
         // ANTHROPIC_AUTH_TOKEN alongside a claude.ai login triggers Claude Code's
         // auth-conflict warning, so unset both defensively.
-        // Launch Claude Code on its default model (no --model), which the shim
-        // routes to the default backing model (the larger, more capable one). Keep
-        // a low thinking budget so it stays snappy on local hardware.
+        // Launch Claude Code with its own model and thinking settings (no --model,
+        // no MAX_THINKING_TOKENS); the shim routes each tier per the model map.
         let cmd = "unset ANTHROPIC_API_KEY ANTHROPIC_AUTH_TOKEN; " +
                   "export ANTHROPIC_BASE_URL=\(shimURL); " +
-                  "export CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1; " +
-                  "export MAX_THINKING_TOKENS=1024; claude"
+                  "export CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1; claude"
         let script = """
         tell application "Terminal"
             activate

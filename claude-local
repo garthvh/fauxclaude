@@ -37,7 +37,6 @@ echo "[claude-local] dashboard: ${SHIM_URL}/"
 unset ANTHROPIC_API_KEY ANTHROPIC_AUTH_TOKEN
 export ANTHROPIC_BASE_URL="$SHIM_URL"
 export CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1
-export MAX_THINKING_TOKENS="${MAX_THINKING_TOKENS:-1024}"   # low thinking; override to taste
 
 # Use whatever model you've set in Claude Code (no --model), unless you pin one
 # via CLAUDE_LOCAL_MODEL. The shim still routes each tier per your model map.

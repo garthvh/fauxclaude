@@ -236,10 +236,10 @@ internal sealed class TrayApp : ApplicationContext
         // No credential env vars: Claude Code's claude.ai login rides through to
         // the shim (which ignores auth); setting one alongside a login triggers
         // Claude Code's auth-conflict warning. Empty `set X=` unsets in cmd.
-        // Default model (no --model → shim routes to the larger default backing
-        // model); low thinking budget keeps it snappy on local hardware.
+        // Claude Code's own model and thinking settings (no --model, no
+        // MAX_THINKING_TOKENS); the shim routes each tier per the model map.
         var cmd = $"set ANTHROPIC_API_KEY=&& set ANTHROPIC_AUTH_TOKEN=&& set ANTHROPIC_BASE_URL={ShimUrl}&& " +
-                  "set CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1&& set MAX_THINKING_TOKENS=1024&& " +
+                  "set CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1&& " +
                   "claude";
         // prefer Windows Terminal when installed, fall back to plain cmd
         try
