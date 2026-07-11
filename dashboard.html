@@ -143,7 +143,7 @@
   <table>
     <thead><tr>
       <th>Time</th><th>Status</th><th>Model</th><th>Stream</th>
-      <th class="num">In</th><th class="num">Out</th><th class="num">ms</th><th>Last user message</th>
+      <th class="num">In</th><th class="num">Out</th><th class="num">took</th><th>Last user message</th>
     </tr></thead>
     <tbody id="rows"><tr><td colspan="8" class="empty">Waiting for requests… point a client at this
       server with <code>ANTHROPIC_BASE_URL</code>.</td></tr></tbody>
@@ -175,6 +175,18 @@ const MAX_ROWS = 100;
 
 const $ = (id) => document.getElementById(id);
 const fmt = (n) => (n >= 10000 ? (n / 1000).toFixed(1) + "k" : String(n ?? 0));
+// Duration as minutes / seconds / milliseconds, dropping leading zero units.
+// 78342 -> "1m 18s 342ms", 9042 -> "9s 42ms", 234 -> "234ms".
+const fmtDuration = (ms) => {
+  if (ms == null) return "…";
+  ms = Math.round(ms);
+  const m = Math.floor(ms / 60000), s = Math.floor((ms % 60000) / 1000), r = ms % 1000;
+  const parts = [];
+  if (m) parts.push(m + "m");
+  if (m || s) parts.push(s + "s");
+  parts.push(r + "ms");
+  return parts.join(" ");
+};
 const fmtMoney = (usd) => usd >= 1000 ? "$" + (usd / 1000).toFixed(2) + "k"
                         : usd >= 100 ? "$" + usd.toFixed(0)
                         : usd >= 0.01 || usd === 0 ? "$" + usd.toFixed(2)
@@ -228,7 +240,7 @@ function render() {
       <td>${r.stream ? "yes" : "no"}</td>
       <td class="num">${fmt(r.inputTokens)}</td>
       <td class="num">${fmt(r.outputTokens)}</td>
-      <td class="num">${r.durationMs != null ? fmt(r.durationMs) : "…"}</td>
+      <td class="num">${fmtDuration(r.durationMs)}</td>
       <td class="preview" title="${esc(r.error || r.preview)}">${esc(r.error || r.preview)}</td>
     </tr>`);
   }
@@ -269,7 +281,7 @@ async function openDetail(id) {
     `${new Date(full.ts).toLocaleTimeString()} · ${full.status}` +
     `${full.stopReason ? " (" + full.stopReason + ")" : ""}` +
     ` · in ${full.inputTokens ?? 0} / out ${full.outputTokens ?? 0}` +
-    `${full.durationMs != null ? " · " + full.durationMs + "ms" : ""}` +
+    `${full.durationMs != null ? " · " + fmtDuration(full.durationMs) : ""}` +
     `${full.stream ? " · streamed" : ""}`;
   const hasErr = !!full.error;
   $("d-err-h").style.display = hasErr ? "" : "none";
