@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// ollama-claude-shim — pretends to be the Anthropic Messages API, backed by a
+// FauxClaude — 100% locally sourced Claude. Pretends to be the Anthropic Messages API, backed by a
 // local Ollama instance (or a built-in mock). Zero dependencies, Node 18+.
 //
 //   PORT=11435 OLLAMA_URL=http://localhost:11434 OLLAMA_MODEL=llama3.2 node server.mjs
@@ -90,7 +90,7 @@ async function resolveOllamaModel(claudeModel) {
   const picked = tags.models[0].name;
   if (picked !== defaultOllamaModel) {
     defaultOllamaModel = picked;
-    console.log(`[shim] defaulting to ollama model: ${picked}`);
+    console.log(`[fauxclaude] defaulting to ollama model: ${picked}`);
   }
   return picked;
 }
@@ -113,9 +113,13 @@ function apiRates(model) {
   return [3, 15]; // sonnet and anything unrecognized
 }
 
-const STATS_FILE = path.join(os.homedir(), ".ollama-claude-shim-stats.json");
+const STATS_FILE = path.join(os.homedir(), ".fauxclaude-stats.json");
+const LEGACY_STATS_FILE = path.join(os.homedir(), ".ollama-claude-shim-stats.json"); // pre-rebrand
 let totals = { requests: 0, inputTokens: 0, outputTokens: 0, costUsd: 0, since: Date.now() };
-try { totals = { ...totals, ...JSON.parse(fs.readFileSync(STATS_FILE, "utf8")) }; } catch { /* first run */ }
+try {
+  const src = fs.existsSync(STATS_FILE) ? STATS_FILE : LEGACY_STATS_FILE;
+  totals = { ...totals, ...JSON.parse(fs.readFileSync(src, "utf8")) };
+} catch { /* first run */ }
 let statsDirty = false;
 setInterval(() => {
   if (!statsDirty) return;
@@ -586,6 +590,13 @@ const server = http.createServer(async (req, res) => {
       return res.end(JSON.stringify(modelObject(id)));
     }
 
+    if (req.method === "GET" && url.pathname === "/logo.png") {
+      const logo = path.join(path.dirname(DASHBOARD_HTML), "assets", "logo.png");
+      if (!fs.existsSync(logo)) return anthropicError(res, 404, "not_found_error", "no logo installed");
+      res.writeHead(200, { "content-type": "image/png" });
+      return res.end(fs.readFileSync(logo));
+    }
+
     if (req.method === "GET" && (url.pathname === "/" || url.pathname === "/dashboard")) {
       res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
       return res.end(fs.readFileSync(DASHBOARD_HTML));
@@ -644,8 +655,8 @@ const server = http.createServer(async (req, res) => {
 });
 
 server.listen(PORT, () => {
-  console.log(`[shim] Claude API shim listening on http://127.0.0.1:${PORT}`);
-  console.log(`[shim] mode: ${MOCK ? "MOCK (no ollama)" : `passthrough -> ${OLLAMA_URL}`}`);
-  console.log(`[shim] point clients at it with: ANTHROPIC_BASE_URL=http://127.0.0.1:${PORT} ANTHROPIC_API_KEY=sk-test`);
-  console.log(`[shim] live dashboard: http://127.0.0.1:${PORT}/`);
+  console.log(`[fauxclaude] FauxClaude listening on http://127.0.0.1:${PORT}`);
+  console.log(`[fauxclaude] mode: ${MOCK ? "MOCK (no ollama)" : `passthrough -> ${OLLAMA_URL}`}`);
+  console.log(`[fauxclaude] point clients at it with: ANTHROPIC_BASE_URL=http://127.0.0.1:${PORT} ANTHROPIC_API_KEY=sk-test`);
+  console.log(`[fauxclaude] live dashboard: http://127.0.0.1:${PORT}/`);
 });

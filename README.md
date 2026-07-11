@@ -1,8 +1,10 @@
-# ollama-claude-shim
+# FauxClaude 🦙
 
-A zero-dependency Node server that impersonates the **Anthropic Messages API** in front of a
-local **Ollama** instance — so Claude-compatible frontends can be load- and integration-tested
-without spending real API tokens.
+**100% locally sourced Claude.** A zero-dependency Node server that impersonates the
+**Anthropic Messages API** in front of a local **Ollama** instance — free local Claude Code,
+plus load- and integration-testing of Claude-compatible frontends without real API tokens.
+
+Drop the FauxClaude logo at `assets/logo.png` and the dashboard will wear it.
 
 ```
 Claude Code / Chatbox / LibreChat ──▶ http://127.0.0.1:11435 (this shim) ──▶ Ollama :11434
@@ -56,7 +58,7 @@ so browser-based clients work too.
 
 ## The Mac app (no terminal required)
 
-`OllamaClaudeShim.app` is a native menu bar app that owns everything. Drag it to
+`FauxClaude.app` is a native menu bar app that owns everything. Drag it to
 `/Applications` and launch it from Spotlight like any other app — no scripts, no
 `cd`. It bundles its own copy of the shim, so the app is fully self-contained
 (Node 18+ must be installed, e.g. `brew install node`).
@@ -69,7 +71,7 @@ From the bolt icon in the menu bar:
 - **Open Dashboard** — the live GUI in your default browser
 - **Run Claude Code in Terminal** — opens Terminal already wired to the shim
   (first use asks for Automation permission — that's macOS, allow it once)
-- **View Shim Log** — `~/Library/Logs/ollama-claude-shim.log`
+- **View Shim Log** — `~/Library/Logs/fauxclaude.log`
 
 Rebuild after changing `server.mjs` / `dashboard.html` / the Swift source with
 `mac-app/build-app.sh` (dev-time only; requires Xcode command line tools).
@@ -81,7 +83,7 @@ Rebuild after changing `server.mjs` / `dashboard.html` / the Swift source with
 status, Start/Stop, Mock Mode toggle, Open Dashboard, Run Claude Code in Terminal
 (prefers Windows Terminal, falls back to cmd), View Log, Exit. It bundles
 `server.mjs`/`dashboard.html` next to the exe, logs to
-`%LOCALAPPDATA%\ollama-claude-shim\shim.log`, and double-clicking the tray icon
+`%LOCALAPPDATA%\fauxclaude\shim.log`, and double-clicking the tray icon
 opens the dashboard.
 
 Build on the Windows machine (needs the .NET 8 SDK — `winget install Microsoft.DotNet.SDK.8`):

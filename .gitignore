@@ -1,4 +1,5 @@
 # build output — rebuild with mac-app/build-app.sh
+FauxClaude.app/
 OllamaClaudeShim.app/
 
 # runtime artifacts

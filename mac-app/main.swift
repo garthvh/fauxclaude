@@ -1,4 +1,4 @@
-// Ollama Claude Shim — macOS menu bar app (SwiftUI).
+// FauxClaude — 100% locally sourced Claude. macOS menu bar app (SwiftUI).
 // Owns the Node shim process: start/stop, mode toggle, dashboard, and a
 // one-click Claude Code terminal pointed at the shim.
 import SwiftUI
@@ -29,7 +29,7 @@ final class ShimController: ObservableObject {
 
     var logURL: URL {
         FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent("Library/Logs/ollama-claude-shim.log")
+            .appendingPathComponent("Library/Logs/fauxclaude.log")
     }
 
     private init() {
@@ -222,7 +222,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 }
 
 @main
-struct OllamaClaudeShimApp: App {
+struct FauxClaudeApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @StateObject private var shim = ShimController.shared
 
@@ -230,7 +230,7 @@ struct OllamaClaudeShimApp: App {
         MenuBarExtra {
             MenuContent(shim: shim)
         } label: {
-            Image(systemName: shim.running ? "bolt.horizontal.circle.fill" : "bolt.horizontal.circle")
+            Image(systemName: shim.running ? "theatermasks.circle.fill" : "theatermasks.circle")
         }
     }
 }

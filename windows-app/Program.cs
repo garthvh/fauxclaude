@@ -1,15 +1,15 @@
-// Ollama Claude Shim — Windows system tray app.
+// FauxClaude — 100% locally sourced Claude. Windows system tray app.
 // Owns the Node shim process: start/stop, mode toggle, dashboard, and a
 // one-click Claude Code terminal pointed at the shim.
 //
 // Build:   dotnet publish -c Release -r win-x64 --self-contained false
-// Run:     bin\Release\net8.0-windows\win-x64\publish\OllamaClaudeShim.exe
+// Run:     bin\Release\net8.0-windows\win-x64\publish\FauxClaude.exe
 // Needs:   Node 18+ and the `claude` CLI on PATH.
 
 using System.Diagnostics;
 using System.Text.Json;
 
-namespace OllamaClaudeShim;
+namespace FauxClaude;
 
 internal static class Program
 {
@@ -43,7 +43,7 @@ internal sealed class TrayApp : ApplicationContext
         get
         {
             var dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                                   "ollama-claude-shim");
+                                   "fauxclaude");
             Directory.CreateDirectory(dir);
             return dir;
         }
@@ -80,7 +80,7 @@ internal sealed class TrayApp : ApplicationContext
         menu.Items.Add("Exit (stops shim)", null, (_, _) => ExitApp());
 
         _tray.Icon = SystemIcons.Application;
-        _tray.Text = "Ollama Claude Shim";
+        _tray.Text = "FauxClaude";
         _tray.ContextMenuStrip = menu;
         _tray.Visible = true;
         _tray.DoubleClick += (_, _) => OpenUrl($"{ShimUrl}/");
@@ -99,7 +99,7 @@ internal sealed class TrayApp : ApplicationContext
         var serverJs = Path.Combine(AppContext.BaseDirectory, "server.mjs");
         if (!File.Exists(serverJs))
         {
-            MessageBox.Show($"server.mjs not found next to the exe:\n{serverJs}", "Ollama Claude Shim");
+            MessageBox.Show($"server.mjs not found next to the exe:\n{serverJs}", "FauxClaude");
             return;
         }
         var psi = new ProcessStartInfo("node", $"\"{serverJs}\"")
@@ -126,7 +126,7 @@ internal sealed class TrayApp : ApplicationContext
         catch (System.ComponentModel.Win32Exception)
         {
             MessageBox.Show("Node.js not found on PATH. Install Node 18+ from https://nodejs.org " +
-                            "(or `winget install OpenJS.NodeJS.LTS`).", "Ollama Claude Shim");
+                            "(or `winget install OpenJS.NodeJS.LTS`).", "FauxClaude");
         }
     }
 
@@ -196,7 +196,7 @@ internal sealed class TrayApp : ApplicationContext
         _running = up;
         _statusLine.Text = up ? $"Shim: running ({mode}) on :{Port}" : "Shim: stopped";
         _toggleItem.Text = up ? "Stop Shim" : "Start Shim";
-        _tray.Text = up ? $"Ollama Claude Shim — running ({mode})" : "Ollama Claude Shim — stopped";
+        _tray.Text = up ? $"FauxClaude — running ({mode})" : "FauxClaude — stopped";
 
         if (MockMode) { _ollamaLine.Text = "Ollama: not needed (mock mode)"; return; }
         try
