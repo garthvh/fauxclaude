@@ -169,48 +169,58 @@ internal sealed class TrayApp : ApplicationContext
     private static void OpenUrl(string url) =>
         Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
 
-    // .log has no default file association on many Windows installs, so opening
-    // LogPath via ShellExecute (like OpenUrl does for the dashboard) fails or
-    // prompts. Open it with Notepad explicitly, and create the file first so a
-    // click before the shim has ever started still works. Fall back to revealing
-    // it in Explorer if Notepad can't be launched.
-    private static void OpenLog()
+    // Open a text file for viewing/editing, robustly across Windows configs.
+    // A bare "notepad.exe" fails when the Win11 App Execution Alias for Notepad is
+    // disabled ("Windows cannot find notepad.exe"); a .log/.json file often has no
+    // default association so shell-executing the file prompts or fails. So:
+    //   1. classic Notepad by FULL System32 path (no alias/PATH dependence)
+    //   2. else let the shell open it with whatever handler exists
+    //   3. else reveal it in Explorer
+    private static void OpenTextFile(string path)
     {
+        var notepad = Path.Combine(Environment.SystemDirectory, "notepad.exe");
         try
         {
-            if (!File.Exists(LogPath))
+            if (File.Exists(notepad))
+                Process.Start(new ProcessStartInfo(notepad, $"\"{path}\"") { UseShellExecute = false });
+            else
+                Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
+            return;
+        }
+        catch { /* fall through to Explorer */ }
+        try { Process.Start(new ProcessStartInfo("explorer.exe", $"/select,\"{path}\"") { UseShellExecute = true }); }
+        catch { /* nothing more we can do */ }
+    }
+
+    private static void OpenLog()
+    {
+        if (!File.Exists(LogPath))
+            try
+            {
                 File.WriteAllText(LogPath,
                     "FauxClaude hasn't written any log output yet.\r\n" +
                     "Start FauxClaude (or Run Claude Code in Terminal) to generate log entries.\r\n");
-            Process.Start(new ProcessStartInfo("notepad.exe", $"\"{LogPath}\"") { UseShellExecute = true });
-        }
-        catch
-        {
-            try { Process.Start(new ProcessStartInfo("explorer.exe", $"/select,\"{LogPath}\"") { UseShellExecute = true }); }
-            catch { /* nothing more we can do */ }
-        }
+            }
+            catch { /* opening will still surface whatever exists / reveal the folder */ }
+        OpenTextFile(LogPath);
     }
 
     // Persistent per-Claude-model routing: %LOCALAPPDATA%\fauxclaude\model-map.json.
-    // Seed it with a default the first time, open it in Notepad; the shim picks up
-    // changes on its next start (Stop/Start FauxClaude).
+    // Seed it with a default the first time, then open it; the shim picks up changes
+    // on its next start (Stop/Start FauxClaude).
     private static void EditModelMap()
     {
-        try
-        {
-            if (!File.Exists(ModelMapPath))
+        if (!File.Exists(ModelMapPath))
+            try
+            {
                 File.WriteAllText(ModelMapPath,
                     "{\r\n" +
                     "  \"claude-haiku-4-5\": \"qwen2.5-coder:7b\",\r\n" +
                     "  \"claude-opus-4-8\": \"qwen2.5-coder:14b\"\r\n" +
                     "}\r\n");
-            Process.Start(new ProcessStartInfo("notepad.exe", $"\"{ModelMapPath}\"") { UseShellExecute = true });
-        }
-        catch
-        {
-            try { Process.Start(new ProcessStartInfo("explorer.exe", $"/select,\"{ModelMapPath}\"") { UseShellExecute = true }); }
-            catch { /* nothing more we can do */ }
-        }
+            }
+            catch { /* opening will reveal the folder if the write failed */ }
+        OpenTextFile(ModelMapPath);
     }
 
     private void RunClaude()
