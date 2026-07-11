@@ -175,16 +175,16 @@ const MAX_ROWS = 100;
 
 const $ = (id) => document.getElementById(id);
 const fmt = (n) => (n >= 10000 ? (n / 1000).toFixed(1) + "k" : String(n ?? 0));
-// Duration as minutes / seconds / milliseconds, dropping leading zero units.
-// 78342 -> "1m 18s 342ms", 9042 -> "9s 42ms", 234 -> "234ms".
+// Duration as minutes / seconds / milliseconds, showing only non-zero units.
+// 78342 -> "1m 18s 342ms", 30000 -> "30s", 60000 -> "1m", 234 -> "234ms", 0 -> "0ms".
 const fmtDuration = (ms) => {
   if (ms == null) return "…";
   ms = Math.round(ms);
   const m = Math.floor(ms / 60000), s = Math.floor((ms % 60000) / 1000), r = ms % 1000;
   const parts = [];
   if (m) parts.push(m + "m");
-  if (m || s) parts.push(s + "s");
-  parts.push(r + "ms");
+  if (s) parts.push(s + "s");
+  if (r || parts.length === 0) parts.push(r + "ms");
   return parts.join(" ");
 };
 const fmtMoney = (usd) => usd >= 1000 ? "$" + (usd / 1000).toFixed(2) + "k"
