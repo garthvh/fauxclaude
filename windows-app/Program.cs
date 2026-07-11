@@ -119,9 +119,13 @@ internal sealed class TrayApp : ApplicationContext
         // built-in fast-Haiku default when the file is absent. Opus/Sonnet default
         // to the larger model; both fall back if a model isn't installed — so on a
         // small-RAM box, pull ONLY qwen2.5-coder:7b and every tier routes to it.
-        if (psi.Environment["MODEL_MAP"] == null)
+        // NOTE: ProcessStartInfo.Environment is a Dictionary — its indexer THROWS
+        // KeyNotFoundException on a missing key (it does not return null). Use
+        // ContainsKey, or StartShim crashes on any machine where these aren't
+        // already set as global env vars.
+        if (!psi.Environment.ContainsKey("MODEL_MAP"))
             psi.Environment["MODEL_MAP_FILE"] = ModelMapPath;
-        if (psi.Environment["OLLAMA_MODEL"] == null)
+        if (!psi.Environment.ContainsKey("OLLAMA_MODEL"))
             psi.Environment["OLLAMA_MODEL"] = "qwen2.5-coder:14b";
         try
         {
