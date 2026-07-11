@@ -75,7 +75,7 @@ internal sealed class TrayApp : ApplicationContext
 
         menu.Items.Add("Open Dashboard", null, (_, _) => OpenUrl($"{ShimUrl}/"));
         menu.Items.Add("Run Claude Code in Terminal", null, (_, _) => RunClaude());
-        menu.Items.Add("View Log", null, (_, _) => OpenUrl(LogPath));
+        menu.Items.Add("View Log", null, (_, _) => OpenLog());
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add("Exit (stops FauxClaude)", null, (_, _) => ExitApp());
 
@@ -153,6 +153,25 @@ internal sealed class TrayApp : ApplicationContext
 
     private static void OpenUrl(string url) =>
         Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
+
+    // .log has no default file association on many Windows installs, so opening
+    // LogPath via ShellExecute (like OpenUrl does for the dashboard) fails or
+    // prompts. Open it with Notepad explicitly, and create the file first so a
+    // click before the shim has ever started still works. Fall back to revealing
+    // it in Explorer if Notepad can't be launched.
+    private static void OpenLog()
+    {
+        try
+        {
+            if (!File.Exists(LogPath)) File.WriteAllText(LogPath, "");
+            Process.Start(new ProcessStartInfo("notepad.exe", $"\"{LogPath}\"") { UseShellExecute = true });
+        }
+        catch
+        {
+            try { Process.Start(new ProcessStartInfo("explorer.exe", $"/select,\"{LogPath}\"") { UseShellExecute = true }); }
+            catch { /* nothing more we can do */ }
+        }
+    }
 
     private void RunClaude()
     {
