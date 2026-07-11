@@ -163,7 +163,10 @@ internal sealed class TrayApp : ApplicationContext
     {
         try
         {
-            if (!File.Exists(LogPath)) File.WriteAllText(LogPath, "");
+            if (!File.Exists(LogPath))
+                File.WriteAllText(LogPath,
+                    "FauxClaude hasn't written any log output yet.\r\n" +
+                    "Start FauxClaude (or Run Claude Code in Terminal) to generate log entries.\r\n");
             Process.Start(new ProcessStartInfo("notepad.exe", $"\"{LogPath}\"") { UseShellExecute = true });
         }
         catch
