@@ -80,13 +80,18 @@ function estimateTokens(obj) {
 
 async function resolveOllamaModel(claudeModel) {
   if (MODEL_MAP[claudeModel]) return MODEL_MAP[claudeModel];
-  if (defaultOllamaModel) return defaultOllamaModel;
+  if (process.env.OLLAMA_MODEL) return process.env.OLLAMA_MODEL;
+  // Re-resolve on every request (~1ms against localhost) so pulling/deleting
+  // models in Ollama takes effect without restarting the shim.
   const resp = await fetch(`${OLLAMA_URL}/api/tags`);
   const tags = await resp.json();
   if (!tags.models?.length) throw new Error("No models installed in Ollama — run `ollama pull <model>`");
-  defaultOllamaModel = tags.models[0].name;
-  console.log(`[shim] defaulting to ollama model: ${defaultOllamaModel}`);
-  return defaultOllamaModel;
+  const picked = tags.models[0].name;
+  if (picked !== defaultOllamaModel) {
+    defaultOllamaModel = picked;
+    console.log(`[shim] defaulting to ollama model: ${picked}`);
+  }
+  return picked;
 }
 
 // ------------------------------------------------------- activity feed (GUI)
