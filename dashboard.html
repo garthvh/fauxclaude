@@ -323,10 +323,10 @@ function connect() {
       } else if (keys.length) {
         $("routing-chip").firstChild.textContent = "routing ";
         $("model").textContent =
-          keys.map((k) => `${tier(k)}→${map[k]}`).join(" · ") + ` · default→${dm}`;
+          keys.map((k) => `${tier(k)}→${map[k]}`).join(" · ") + ` · ${dm} (default)`;
       } else {
         $("routing-chip").firstChild.textContent = "model ";
-        $("model").textContent = dm;
+        $("model").textContent = `${dm} (default)`;
       }
       render();
     } else if (msg.type === "update") {
