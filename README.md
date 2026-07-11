@@ -158,8 +158,11 @@ Two defaults matter a lot here (both already set by the shim):
 - **`NUM_CTX` (default 32768)** — Ollama's out-of-the-box context is ~4k tokens, which
   silently truncates Claude Code's system prompt and makes any model look broken.
   Raise it further if your hardware allows.
-- **`KEEP_ALIVE` (default 30m)** — keeps the model loaded between turns so you don't
-  pay a multi-second model reload on every message.
+- **`KEEP_ALIVE` (default -1 = forever)** — keeps the model resident so you never
+  pay the cold model-load after an idle gap (the worst local-model latency). The
+  shim also pre-loads the model whenever Ollama becomes reachable — at launch and
+  after any restart — so it's warm before your first request. Set a duration
+  (`KEEP_ALIVE=30m`) or `0` to unload sooner if you'd rather reclaim the RAM when idle.
 
 Set expectations: local models are far below real Claude at agentic coding. Simple
 edits, explanations, and commit messages work well; long multi-step tool sessions
@@ -207,7 +210,9 @@ the default 32k context), and holding two models resident costs both weight sets
 | **16 GB** | `qwen2.5-coder:3b` (~2 GB) or `llama3.2:3b`, `NUM_PARALLEL=2`, `NUM_CTX=8192`. Or mock mode. |
 
 If you keep both models on a 32 GB box, set `OLLAMA_MAX_LOADED_MODELS=1` so Ollama
-holds one at a time (it reloads when you switch tiers) rather than risking an OOM.
+holds one at a time (it reloads when you switch tiers) rather than risking an OOM —
+this matters more now that `KEEP_ALIVE` defaults to -1 (models stay resident and
+won't idle-evict on their own).
 
 ## Live dashboard
 
