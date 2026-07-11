@@ -112,6 +112,14 @@ internal sealed class TrayApp : ApplicationContext
         };
         psi.Environment["PORT"] = Port.ToString();
         psi.Environment["MOCK"] = MockMode ? "1" : "0";
+        // Route the Haiku tier (the launcher/sims use --model haiku) to a small
+        // fast model for ~2x speed; Opus/Sonnet default to the larger model. Both
+        // fall back gracefully in the shim if not installed — so on a small-RAM
+        // box, pull ONLY qwen2.5-coder:7b and every tier routes to it.
+        if (psi.Environment["MODEL_MAP"] == null)
+            psi.Environment["MODEL_MAP"] = "{\"claude-haiku-4-5\":\"qwen2.5-coder:7b\"}";
+        if (psi.Environment["OLLAMA_MODEL"] == null)
+            psi.Environment["OLLAMA_MODEL"] = "qwen2.5-coder:14b";
         try
         {
             var p = new Process { StartInfo = psi, EnableRaisingEvents = true };

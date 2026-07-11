@@ -173,20 +173,35 @@ move the needle:
 
 - **Smaller model = ~2× (default).** The launcher/terminal and sims use the Haiku
   tier, which FauxClaude routes to `qwen2.5-coder:7b` (~60 tok/s vs ~32 for the
-  14b). Opus/Sonnet keep `qwen2.5-coder:14b` for quality. Change the routing with
-  `MODEL_MAP` / `OLLAMA_MODEL` (a tier pointing at a model you haven't pulled falls
-  back automatically). For an even faster sim, pull a 3b (`qwen2.5-coder:3b`,
+  14b). Opus/Sonnet default to `qwen2.5-coder:14b` for quality. Change the routing
+  with `MODEL_MAP` / `OLLAMA_MODEL` (a tier pointing at a model you haven't pulled
+  falls back automatically). For an even faster sim, pull a 3b (`qwen2.5-coder:3b`,
   `llama3.2:3b`) and map Haiku to it.
 - **Concurrency batching for many parallel requests.** Ollama defaults
   `OLLAMA_NUM_PARALLEL` to 1 for a 14b, so a sim firing N requests at once
   *serializes* them. Raise it and the GPU batches them, multiplying aggregate
-  throughput. On the macOS Ollama app: `launchctl setenv OLLAMA_NUM_PARALLEL 4`,
-  then quit & reopen Ollama. (Each slot needs its own KV cache — you have the RAM;
-  verify stability under your concurrency, some ggml/Metal builds have had
-  concurrency bugs.)
+  throughput. macOS Ollama app: `launchctl setenv OLLAMA_NUM_PARALLEL 3`, then
+  quit & reopen Ollama. Windows: set the `OLLAMA_NUM_PARALLEL` user env var and
+  restart Ollama. (Some ggml/Metal builds have had concurrency crashes — start at
+  2 and confirm stability.)
 - **Pure load, no model?** Mock mode (`MOCK=1` / the app's Mock Mode toggle)
   returns deterministic streamed responses with zero inference — unlimited req/s.
   Use it when you're stress-testing the client/shim/harness rather than the model.
+
+### Sizing to your RAM
+
+Generation and KV cache both live in RAM (unified memory on Apple Silicon), so the
+budget matters. Each parallel slot allocates its own KV cache (~2–3 GB per slot at
+the default 32k context), and holding two models resident costs both weight sets.
+
+| Box RAM | Recommended setup |
+|---|---|
+| **≥ 64 GB** | 7b + 14b both resident (Haiku→7b, Opus→14b), `OLLAMA_NUM_PARALLEL=4`. |
+| **32 GB** | Pull **only** `qwen2.5-coder:7b` (~4.7 GB) — every tier falls back to it, so the 9 GB 14b never loads. `OLLAMA_NUM_PARALLEL=2–3`. Optionally drop `NUM_CTX` (env, default 32768) to `8192` if your sim prompts are short — big KV-cache savings and room for more parallelism. |
+| **16 GB** | `qwen2.5-coder:3b` (~2 GB) or `llama3.2:3b`, `NUM_PARALLEL=2`, `NUM_CTX=8192`. Or mock mode. |
+
+If you keep both models on a 32 GB box, set `OLLAMA_MAX_LOADED_MODELS=1` so Ollama
+holds one at a time (it reloads when you switch tiers) rather than risking an OOM.
 
 ## Live dashboard
 
