@@ -169,29 +169,26 @@ internal sealed class TrayApp : ApplicationContext
     private static void OpenUrl(string url) =>
         Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
 
-    // Open a text file for viewing/editing, robustly across Windows configs:
-    //   1. classic Notepad by FULL System32 path via ShellExecute — a bare
-    //      "notepad.exe" fails when the Win11 App Execution Alias is disabled, and
-    //      ShellExecute (not CreateProcess) avoids the "system cannot find the path
-    //      specified" a bad inherited working directory causes with UseShellExecute=false.
-    //   2. else let the shell open the file with whatever handler exists
-    //   3. else just open the containing folder (which we ensured exists)
+    // Open a text file for viewing/editing. Do NOT shell out to notepad.exe: on
+    // Windows 11 even the fully-qualified C:\Windows\System32\notepad.exe silently
+    // hands off to the packaged (MSIX) Notepad through an activation contract that
+    // drops the file argument and opens no discoverable window (see issue #3). Let
+    // the shell open the file by its registered association instead — the same path
+    // as double-clicking in Explorer, which the packaged app handles correctly:
+    //   1. explorer.exe <path>  (reliably opens a real window via the file's handler)
+    //   2. else ShellExecute the file directly
+    //   3. else open the containing folder so the user can double-click it
     private static void OpenTextFile(string path)
     {
         var dir = Path.GetDirectoryName(path) ?? ".";
         try { Directory.CreateDirectory(dir); } catch { /* best effort */ }
 
-        var notepad = Path.Combine(Environment.SystemDirectory, "notepad.exe");
         try
         {
-            Process.Start(new ProcessStartInfo(notepad, $"\"{path}\"")
-            {
-                UseShellExecute = true,
-                WorkingDirectory = dir,   // explicit, known-good CWD
-            });
+            Process.Start(new ProcessStartInfo("explorer.exe", $"\"{path}\"") { UseShellExecute = true });
             return;
         }
-        catch { /* try the default handler */ }
+        catch { /* try ShellExecute on the file directly */ }
         try
         {
             Process.Start(new ProcessStartInfo(path) { UseShellExecute = true, WorkingDirectory = dir });
