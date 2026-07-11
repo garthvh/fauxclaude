@@ -201,14 +201,15 @@
     <h2>Quick <span class="accent">start</span></h2>
     <p class="sub">Three moves on a Mac. Windows works the same via the tray app.</p>
     <ol class="steps">
-      <li><b>Install the prerequisites</b> — Node 18+, Ollama, and Claude Code.</li>
+      <li><b>Install the prerequisites</b> — Node&nbsp;18+, the Ollama app (runs in the background), and Claude&nbsp;Code.</li>
       <li><b>Pull a model that can drive tools</b> — qwen2.5-coder:14b is a great start.</li>
       <li><b>Launch FauxClaude.app</b> and click <b>Run Claude Code in Terminal</b>.</li>
     </ol>
 <pre><span class="c"># get it</span>
 git clone https://github.com/garthvh/fauxclaude && cd fauxclaude
 
-<span class="c"># a local model with tool support</span>
+<span class="c"># install Ollama as a background app, then a model with tool support</span>
+brew install --cask ollama && open -a Ollama
 ollama pull qwen2.5-coder:14b
 
 <span class="c"># build the mac app once, then launch it from the menu bar forever</span>

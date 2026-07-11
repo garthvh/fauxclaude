@@ -13,16 +13,25 @@ Claude Code / Chatbox / LibreChat ──▶ http://127.0.0.1:11435 (this shim) �
 ## Quick start
 
 ```sh
-# 1. Have ollama running with at least one model
-ollama serve &
-ollama pull llama3.2
+# 1. Install Ollama as an app so it always runs (registers a login service
+#    that starts on boot and stays up — no `ollama serve` to babysit).
+brew install --cask ollama && open -a Ollama   # macOS
+#    Windows: install "Ollama for Windows" from https://ollama.com/download
 
-# 2. Start the shim
+# 2. Pull at least one model
+ollama pull qwen2.5-coder:14b
+
+# 3. Start FauxClaude
 node server.mjs
 
-# 3. Point any Claude client at it
+# 4. Point any Claude client at it
 ANTHROPIC_BASE_URL=http://127.0.0.1:11435 ANTHROPIC_AUTH_TOKEN=sk-test claude -p "say hi"
 ```
+
+> **Run Ollama as the app, not `ollama serve` in a terminal.** The app installs a
+> background service that auto-starts on login and survives reboots, so Ollama is
+> always ready when FauxClaude needs it. A manual `ollama serve &` dies when you
+> close the terminal or reboot.
 
 Any `x-api-key` is accepted. Any `claude-*` model name is routed to your Ollama model.
 
@@ -60,10 +69,13 @@ so browser-based clients work too.
 
 `FauxClaude.app` is a native menu bar app that owns everything. Drag it to
 `/Applications` and launch it from Spotlight like any other app — no scripts, no
-`cd`. It bundles its own copy of the shim, so the app is fully self-contained
-(Node 18+ must be installed, e.g. `brew install node`).
+`cd`. It bundles its own copy of the shim, so the app is fully self-contained.
 
-From the bolt icon in the menu bar:
+Prereqs: **Node 18+** (`brew install node`) and the **Ollama app** running in the
+background (`brew install --cask ollama && open -a Ollama` — see Quick start above;
+the app keeps Ollama serving across reboots).
+
+From the llama in the menu bar:
 
 - **live status** — shim running/stopped + mode, Ollama up/down + model count
 - **Start / Stop Shim** — the shim runs only while the app does; quitting stops it
@@ -94,8 +106,9 @@ dotnet publish -c Release -r win-x64 --self-contained false
 # exe lands in bin\Release\net8.0-windows\win-x64\publish\
 ```
 
-Prereqs on Windows: Node 18+ (`winget install OpenJS.NodeJS.LTS`), Ollama for
-Windows, and the `claude` CLI.
+Prereqs on Windows: Node 18+ (`winget install OpenJS.NodeJS.LTS`), the
+**Ollama for Windows** app (from <https://ollama.com/download> — it runs in the
+background like the macOS app), and the `claude` CLI.
 
 ## Daily driver: local Claude Code with zero token spend
 
