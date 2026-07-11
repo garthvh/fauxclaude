@@ -332,6 +332,16 @@ async function handleOllama(res, body, claudeModel, msgId, inputTokens, rec) {
   if (body.top_p != null) ollamaReq.options.top_p = body.top_p;
   if (body.stop_sequences?.length) ollamaReq.options.stop = body.stop_sequences;
 
+  // Structured outputs: translate Anthropic's schema-constrained output into
+  // Ollama's native `format` field, which drives Ollama's own constrained
+  // decoding — so callers using output_config.format get schema-valid JSON back
+  // (which JSON.parse) instead of free-form prose. The canonical Anthropic shape
+  // is output_config.format.{type:"json_schema", schema}; we also accept the
+  // deprecated top-level output_format alias and a .json_schema field spelling.
+  const fmt = body.output_config?.format ?? body.output_format;
+  const jsonSchema = fmt?.type === "json_schema" ? (fmt.schema ?? fmt.json_schema) : null;
+  if (jsonSchema) ollamaReq.format = jsonSchema;
+
   const upstream = await fetch(`${OLLAMA_URL}/api/chat`, {
     method: "POST",
     headers: { "content-type": "application/json" },
