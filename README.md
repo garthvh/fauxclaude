@@ -91,12 +91,22 @@ Rebuild after changing `server.mjs` / `dashboard.html` / the Swift source with
 ## The Windows app (system tray)
 
 `windows-app/` is the Windows equivalent — a .NET 8 WinForms **system tray app**
-(the icons by the clock) with the same menu as the Mac app: shim status, Ollama
-status, Start/Stop, Mock Mode toggle, Open Dashboard, Run Claude Code in Terminal
-(prefers Windows Terminal, falls back to cmd), View Log, Exit. It bundles
-`server.mjs`/`dashboard.html` next to the exe, logs to
-`%LOCALAPPDATA%\fauxclaude\shim.log`, and double-clicking the tray icon
-opens the dashboard.
+(the icons by the clock). It bundles its own copy of the shim next to the exe, so
+it's self-contained.
+
+Prereqs: **Node 18+** (`winget install OpenJS.NodeJS.LTS`) and the **Ollama for
+Windows** app running in the background (install from
+<https://ollama.com/download/windows> or `winget install Ollama.Ollama` — like the
+macOS app, it starts with Windows and keeps Ollama serving across reboots).
+
+From the tray icon:
+
+- **live status** — shim running/stopped + mode, Ollama up/down + model count
+- **Start / Stop FauxClaude** — the shim runs only while the app does; exiting stops it
+- **Mock Mode** toggle — flip to canned replies (no Ollama) and back; restarts the shim
+- **Open Dashboard** — the live GUI in your browser (double-clicking the tray icon also opens it)
+- **Run Claude Code in Terminal** — opens Windows Terminal (falls back to cmd) already wired to the shim
+- **View Log** — `%LOCALAPPDATA%\fauxclaude\shim.log`
 
 Build on the Windows machine (needs the .NET 8 SDK — `winget install Microsoft.DotNet.SDK.8`):
 
@@ -105,10 +115,6 @@ cd windows-app
 dotnet publish -c Release -r win-x64 --self-contained false
 # exe lands in bin\Release\net8.0-windows\win-x64\publish\
 ```
-
-Prereqs on Windows: Node 18+ (`winget install OpenJS.NodeJS.LTS`), the
-**Ollama for Windows** app (from <https://ollama.com/download> — it runs in the
-background like the macOS app), and the `claude` CLI.
 
 ## Daily driver: local Claude Code with zero token spend
 
