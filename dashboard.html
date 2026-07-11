@@ -126,7 +126,8 @@
   <div class="tile">
     <span class="label">Saved at Claude API rates</span>
     <span class="value" id="t-saved">$0.00</span>
-    <span class="sub" id="t-saved-sub">all-time, priced per requested model</span>
+    <span class="sub" id="t-saved-sub">cache-aware, priced per requested model</span>
+    <span class="sub" id="t-saved-break"></span>
   </div>
   <div class="tile">
     <span class="label">Output tokens/s — last 60s</span>
@@ -183,8 +184,19 @@ function renderTotals(t) {
   if (!t) return;
   $("t-saved").textContent = fmtMoney(t.costUsd || 0);
   $("t-saved-sub").textContent =
-    `${fmt(t.inputTokens || 0)} in / ${fmt(t.outputTokens || 0)} out over ${fmt(t.requests || 0)} requests` +
+    `${fmt(t.inputTokens || 0)} in / ${fmt(t.outputTokens || 0)} out · ${fmt(t.requests || 0)} reqs` +
     (t.since ? ` since ${new Date(t.since).toLocaleDateString()}` : "");
+
+  // Breakdown: what share of input was served from cache, and per-tier cost split.
+  const read = t.cacheReadTokens || 0, write = t.cacheWriteTokens || 0, fresh = t.fullInputTokens || 0;
+  const inTot = read + write + fresh;
+  const parts = [];
+  if (inTot > 0) parts.push(`${Math.round((read / inTot) * 100)}% input cached`);
+  const tiers = Object.entries(t.byTier || {})
+    .filter(([, c]) => c > 0).sort((a, b) => b[1] - a[1])
+    .map(([name, c]) => `${name} ${fmtMoney(c)}`);
+  if (tiers.length) parts.push(tiers.join(" · "));
+  $("t-saved-break").textContent = parts.join("  ·  ");
 }
 
 function upsert(rec) {

@@ -211,8 +211,16 @@ Open **http://127.0.0.1:11435/** in any browser while the shim is running. It sh
 updated live over SSE:
 
 - mode / backend / default model chips
-- stat tiles: total requests, active now, tokens in/out, and a 60-second
-  output-tokens/sec sparkline
+- stat tiles: total requests, active now, tokens in/out, a 60-second
+  output-tokens/sec sparkline, and **"Saved at Claude API rates"** — an all-time,
+  persisted estimate of what this traffic would have cost on the real Claude API,
+  priced per request against the model the client asked for (Opus $5/$25, Sonnet
+  $3/$15, Haiku $1/$5, Fable $10/$50 per MTok). It's **cache-aware**: Claude Code
+  re-sends a large stable `system`+`tools` block every turn, so that block is
+  modelled as a cache read (0.1×) after the first request within the 5-min TTL and
+  a write (1.25×) the first time — the tile shows the % of input served from cache
+  and a per-tier cost split. (Conversation-history caching isn't modelled, so long
+  sessions are slightly over-estimated.)
 - a request table — status (streaming / done / error with the failure message),
   Claude model → Ollama model routing, stream flag, live-ticking token counts,
   duration, and a preview of the last user message
@@ -263,7 +271,8 @@ Or use `hey`/`k6`/`vegeta` against `POST /v1/messages` with a non-streaming body
 ## Known gaps (intentional)
 
 - Token counts are estimates on the input side (Ollama has no tokenizer endpoint).
-- No prompt caching (`cache_read_input_tokens` is always 0), batches, or files API.
+- No real prompt caching, batches, or files API (API responses always report
+  `cache_read_input_tokens: 0` — though the savings estimate *models* caching).
 - Server tools (`web_search` etc.) in the `tools` array are silently dropped.
 - Tool-call quality depends entirely on the Ollama model — pick one with tool support
   (llama3.1+, qwen2.5, mistral-nemo) if your frontend relies on tool use.
