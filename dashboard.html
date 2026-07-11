@@ -114,7 +114,7 @@
   <span class="chip tagline">100% locally sourced Claude</span>
   <span class="chip">mode <b id="mode">…</b></span>
   <span class="chip" id="backend-chip">backend <b id="backend">…</b></span>
-  <span class="chip">model <b id="model">…</b></span>
+  <span class="chip" id="routing-chip">model <b id="model">…</b></span>
   <span id="conn">connecting…</span>
 </header>
 
@@ -310,7 +310,24 @@ function connect() {
       for (const rec of msg.records) upsert(rec);
       $("mode").textContent = msg.config.mock ? "mock" : "ollama";
       $("backend").textContent = msg.config.mock ? "built-in" : msg.config.ollama_url;
-      $("model").textContent = msg.config.default_model || "(auto)";
+      // Show the actual per-tier routing, not just the hidden default — otherwise
+      // the chip reads e.g. "14b" while Haiku traffic really runs on the mapped 7b.
+      const dm = msg.config.default_model || "(auto)";
+      const map = msg.config.model_map || {};
+      const tier = (m) => /haiku/.test(m) ? "haiku" : /opus/.test(m) ? "opus"
+                        : /sonnet/.test(m) ? "sonnet" : /fable|mythos/.test(m) ? "fable" : m;
+      const keys = Object.keys(map);
+      if (msg.config.mock) {
+        $("routing-chip").firstChild.textContent = "model ";
+        $("model").textContent = "mock";
+      } else if (keys.length) {
+        $("routing-chip").firstChild.textContent = "routing ";
+        $("model").textContent =
+          keys.map((k) => `${tier(k)}→${map[k]}`).join(" · ") + ` · default→${dm}`;
+      } else {
+        $("routing-chip").firstChild.textContent = "model ";
+        $("model").textContent = dm;
+      }
       render();
     } else if (msg.type === "update") {
       upsert(msg.record);
