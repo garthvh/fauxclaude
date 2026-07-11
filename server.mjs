@@ -100,7 +100,15 @@ const activity = [];            // capped ring buffer of request records
 const dashClients = new Set();  // open /events SSE responses
 const MAX_ACTIVITY = 200;
 
-const publicRec = ({ _start, _lastPush, ...pub }) => pub;
+// The live feed carries metadata + preview only; full bodies are fetched on
+// demand via GET /requests/:id.
+const publicRec = ({ _start, _lastPush, userMessage, responseText, ...pub }) => pub;
+
+const BODY_CAP = 200_000; // chars kept per stored message/response
+
+function appendResponse(rec, text) {
+  if (rec.responseText.length < BODY_CAP) rec.responseText += text;
+}
 
 function broadcast(rec) {
   const line = `data: ${JSON.stringify({ type: "update", record: publicRec(rec) })}\n\n`;
@@ -114,6 +122,8 @@ function track(body, inputTokens) {
     stream: !!body.stream, status: "active", inputTokens, outputTokens: 0,
     durationMs: null, stopReason: null, error: null,
     preview: blockText(lastUser?.content ?? "").replace(/\s+/g, " ").slice(0, 200),
+    userMessage: blockText(lastUser?.content ?? "").slice(0, BODY_CAP),
+    responseText: "",
     _start: Date.now(), _lastPush: 0,
   };
   activity.push(rec);
@@ -313,6 +323,11 @@ async function handleOllama(res, body, claudeModel, msgId, inputTokens, rec) {
       output_tokens: o.eval_count ?? estimateTokens(o.message?.content || ""),
       cache_creation_input_tokens: 0, cache_read_input_tokens: 0,
     };
+    if (o.message?.thinking) appendResponse(rec, `[thinking]\n${o.message.thinking}\n[/thinking]\n\n`);
+    if (o.message?.content) appendResponse(rec, o.message.content);
+    for (const tc of toolCalls) {
+      appendResponse(rec, `\n[tool_use: ${tc.function.name} ${JSON.stringify(tc.function.arguments || {})}]`);
+    }
     finish(rec, { status: "done", stopReason, inputTokens: usage.input_tokens, outputTokens: usage.output_tokens });
     res.writeHead(200, { "content-type": "application/json", ...corsHeaders() });
     res.end(JSON.stringify({
@@ -365,16 +380,21 @@ async function handleOllama(res, body, claudeModel, msgId, inputTokens, rec) {
         try { chunk = JSON.parse(line); } catch { continue; }
 
         if (chunk.message?.thinking) {
-          if (openBlock !== "thinking") { closeBlock(); openText("thinking"); }
+          if (openBlock !== "thinking") { closeBlock(); openText("thinking"); appendResponse(rec, "[thinking]\n"); }
+          appendResponse(rec, chunk.message.thinking);
           sse.send("content_block_delta", {
             type: "content_block_delta", index: blockIndex,
             delta: { type: "thinking_delta", thinking: chunk.message.thinking },
           });
         }
         if (chunk.message?.content) {
-          if (openBlock !== "text") { closeBlock(); openText("text"); }
+          if (openBlock !== "text") {
+            if (openBlock === "thinking") appendResponse(rec, "\n[/thinking]\n\n");
+            closeBlock(); openText("text");
+          }
           outputTokens++;
           rec.outputTokens = outputTokens;
+          appendResponse(rec, chunk.message.content);
           tick(rec);
           sse.send("content_block_delta", {
             type: "content_block_delta", index: blockIndex,
@@ -385,6 +405,7 @@ async function handleOllama(res, body, claudeModel, msgId, inputTokens, rec) {
           closeBlock();
           sawToolCall = true;
           blockIndex++;
+          appendResponse(rec, `\n[tool_use: ${tc.function.name} ${JSON.stringify(tc.function.arguments || {})}]`);
           const toolId = genId("toolu");
           sse.send("content_block_start", {
             type: "content_block_start", index: blockIndex,
@@ -438,6 +459,7 @@ async function handleMock(res, body, claudeModel, msgId, inputTokens, rec) {
   if (!body.stream) {
     await sleep(MOCK_DELAY_MS * 5);
     const text = words.join("");
+    appendResponse(rec, text);
     finish(rec, { status: "done", stopReason: "end_turn", outputTokens: words.length });
     res.writeHead(200, { "content-type": "application/json", ...corsHeaders() });
     res.end(JSON.stringify({
@@ -455,6 +477,7 @@ async function handleMock(res, body, claudeModel, msgId, inputTokens, rec) {
   sse.send("content_block_start", { type: "content_block_start", index: 0, content_block: { type: "text", text: "" } });
   for (const w of words) {
     rec.outputTokens++;
+    appendResponse(rec, w);
     tick(rec);
     sse.send("content_block_delta", { type: "content_block_delta", index: 0, delta: { type: "text_delta", text: w } });
     if (MOCK_DELAY_MS) await sleep(MOCK_DELAY_MS);
@@ -552,6 +575,15 @@ const server = http.createServer(async (req, res) => {
       dashClients.add(res);
       req.on("close", () => dashClients.delete(res));
       return; // held open
+    }
+
+    if (req.method === "GET" && url.pathname.startsWith("/requests/")) {
+      const id = url.pathname.slice("/requests/".length);
+      const rec = activity.find((r) => r.id === id);
+      if (!rec) return anthropicError(res, 404, "not_found_error", `No request ${id} in the activity buffer`);
+      const { _start, _lastPush, ...full } = rec;
+      res.writeHead(200, { "content-type": "application/json", ...corsHeaders() });
+      return res.end(JSON.stringify(full));
     }
 
     if (req.method === "GET" && url.pathname === "/health") {
