@@ -38,15 +38,20 @@
   .chip b { color: var(--ink-1); font-weight: 600; }
   #conn { margin-left: auto; font-size: 12px; color: var(--ink-muted); }
 
-  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 16px; }
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; margin-bottom: 16px; }
   .tile {
-    background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px;
-    padding: 12px 14px; min-height: 84px; display: flex; flex-direction: column; justify-content: space-between;
+    background: var(--surface-1); border: 1px solid var(--border); border-radius: 12px;
+    padding: 16px 18px; min-height: 108px; display: flex; flex-direction: column; justify-content: space-between;
+    container-type: inline-size;   /* value sizes to the tile's own width, not the viewport */
   }
-  .tile .label { font-size: 12px; color: var(--ink-2); }
-  .tile .value { font-size: 26px; font-weight: 650; letter-spacing: -0.01em; }
-  .tile .sub { font-size: 11px; color: var(--ink-muted); }
-  .tile svg { display: block; width: 100%; height: 34px; }
+  .tile .label { color: var(--ink-2); font-size: 13px; font-size: clamp(12px, 6.5cqi, 15px); }
+  .tile .value {
+    font-weight: 650; letter-spacing: -0.02em; line-height: 1.02;
+    font-size: 40px;                       /* fallback if container units unsupported */
+    font-size: clamp(30px, 24cqi, 58px);   /* scales with tile width, capped */
+  }
+  .tile .sub { color: var(--ink-muted); font-size: 12px; font-size: clamp(11px, 5.5cqi, 13px); }
+  .tile svg { display: block; width: 100%; height: clamp(34px, 20cqi, 56px); }
 
   .card { background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px; overflow-x: auto; }
   .pager { display: flex; align-items: center; padding: 8px 12px; border-top: 1px solid var(--grid);
