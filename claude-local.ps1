@@ -40,9 +40,11 @@ Write-Host "[claude-local] dashboard: $ShimUrl/"
 Remove-Item Env:ANTHROPIC_API_KEY, Env:ANTHROPIC_AUTH_TOKEN -ErrorAction SilentlyContinue
 $env:ANTHROPIC_BASE_URL = $ShimUrl
 $env:CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC = "1"
+if (-not $env:MAX_THINKING_TOKENS) { $env:MAX_THINKING_TOKENS = "1024" }  # low thinking for speed
 
-# Use whatever model you've set in Claude Code (no --model), unless you pin one
-# via CLAUDE_LOCAL_MODEL.
-if ($env:CLAUDE_LOCAL_MODEL) { & claude --model $env:CLAUDE_LOCAL_MODEL @args }
-else { & claude @args }
+# This launcher is the FAST path — Haiku + low thinking for quick local sessions.
+# Pin a different model with CLAUDE_LOCAL_MODEL. For quality, use the app's
+# "Run Claude Code in Terminal" (your own Claude Code model + thinking settings).
+$model = if ($env:CLAUDE_LOCAL_MODEL) { $env:CLAUDE_LOCAL_MODEL } else { "haiku" }
+& claude --model $model @args
 exit $LASTEXITCODE

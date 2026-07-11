@@ -37,11 +37,10 @@ echo "[claude-local] dashboard: ${SHIM_URL}/"
 unset ANTHROPIC_API_KEY ANTHROPIC_AUTH_TOKEN
 export ANTHROPIC_BASE_URL="$SHIM_URL"
 export CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1
+export MAX_THINKING_TOKENS="${MAX_THINKING_TOKENS:-1024}"   # low thinking for speed
 
-# Use whatever model you've set in Claude Code (no --model), unless you pin one
-# via CLAUDE_LOCAL_MODEL. The shim still routes each tier per your model map.
-if [ -n "${CLAUDE_LOCAL_MODEL:-}" ]; then
-  exec claude --model "$CLAUDE_LOCAL_MODEL" "$@"
-else
-  exec claude "$@"
-fi
+# This launcher is the FAST path — Haiku (mapped to the small model) + low thinking
+# for quick/scripted local sessions. Pin a different model with CLAUDE_LOCAL_MODEL.
+# (For quality, use the app's "Run Claude Code in Terminal", which uses your own
+# Claude Code model + thinking settings.)
+exec claude --model "${CLAUDE_LOCAL_MODEL:-haiku}" "$@"
