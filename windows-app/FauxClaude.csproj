@@ -9,12 +9,14 @@
     <AssemblyName>FauxClaude</AssemblyName>
     <RootNamespace>FauxClaude</RootNamespace>
     <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
+    <ApplicationIcon>..\assets\FauxClaude.ico</ApplicationIcon>
   </PropertyGroup>
 
   <!-- bundle the shim next to the exe so the app is self-contained -->
   <ItemGroup>
     <Content Include="..\server.mjs" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="..\dashboard.html" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\assets\FauxClaude.ico" Link="FauxClaude.ico" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

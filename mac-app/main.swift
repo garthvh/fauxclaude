@@ -228,7 +228,7 @@ enum MenuIcon {
               let img = NSImage(contentsOfFile: path) else {
             return NSImage(systemSymbolName: "theatermasks.circle", accessibilityDescription: "FauxClaude")!
         }
-        let height: CGFloat = 19  // menu bar friendly; width follows aspect
+        let height: CGFloat = 22  // fill the menu bar; width follows aspect
         img.size = NSSize(width: img.size.width / max(img.size.height, 1) * height, height: height)
         return img
     }

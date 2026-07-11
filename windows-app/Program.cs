@@ -79,7 +79,8 @@ internal sealed class TrayApp : ApplicationContext
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add("Exit (stops FauxClaude)", null, (_, _) => ExitApp());
 
-        _tray.Icon = SystemIcons.Application;
+        var icoPath = Path.Combine(AppContext.BaseDirectory, "FauxClaude.ico");
+        _tray.Icon = File.Exists(icoPath) ? new Icon(icoPath) : SystemIcons.Application;
         _tray.Text = "FauxClaude";
         _tray.ContextMenuStrip = menu;
         _tray.Visible = true;
