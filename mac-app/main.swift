@@ -31,6 +31,10 @@ final class ShimController: ObservableObject {
         FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent("Library/Logs/fauxclaude.log")
     }
+    var modelMapURL: URL {
+        FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent(".fauxclaude-model-map.json")
+    }
 
     private init() {
         start()
@@ -78,16 +82,12 @@ final class ShimController: ObservableObject {
         var env = ProcessInfo.processInfo.environment
         env["PORT"] = String(port)
         env["MOCK"] = mockMode ? "1" : "0"
-        // Route the Haiku tier (what the launcher terminal + sims use) to a small,
-        // fast model for ~2x speed; Opus/Sonnet keep the larger quality model.
-        // Both are ignored by the shim if the model isn't installed, so this is
-        // safe when either hasn't been pulled.
-        if env["MODEL_MAP"] == nil {
-            env["MODEL_MAP"] = #"{"claude-haiku-4-5":"qwen2.5-coder:7b"}"#
-        }
-        if env["OLLAMA_MODEL"] == nil {
-            env["OLLAMA_MODEL"] = "qwen2.5-coder:14b"   // default for non-Haiku tiers
-        }
+        // Per-Claude-model routing comes from a persistent, user-editable file
+        // (Edit Model Map… in the menu). The shim reads it and falls back to its
+        // built-in fast-Haiku default when the file is absent. Opus/Sonnet default
+        // to the larger quality model; both fall back if a model isn't installed.
+        if env["MODEL_MAP"] == nil { env["MODEL_MAP_FILE"] = modelMapURL.path }
+        if env["OLLAMA_MODEL"] == nil { env["OLLAMA_MODEL"] = "qwen2.5-coder:14b" }
         p.environment = env
         p.standardOutput = log
         p.standardError = log
@@ -150,6 +150,21 @@ final class ShimController: ObservableObject {
 
     func openLog() {
         NSWorkspace.shared.open(logURL)
+    }
+
+    func editModelMap() {
+        // Seed the file with a commented-by-example default the first time, then
+        // open it. Editing + restarting the shim applies the new routing.
+        if !FileManager.default.fileExists(atPath: modelMapURL.path) {
+            let template = """
+            {
+              "claude-haiku-4-5": "qwen2.5-coder:7b",
+              "claude-opus-4-8": "qwen2.5-coder:14b"
+            }
+            """
+            try? template.write(to: modelMapURL, atomically: true, encoding: .utf8)
+        }
+        NSWorkspace.shared.open(modelMapURL)
     }
 
     // MARK: health polling
@@ -221,6 +236,7 @@ struct MenuContent: View {
         Button("Run Claude Code in Terminal") { shim.runClaude() }
             .keyboardShortcut("t")
         Button("View Log") { shim.openLog() }
+        Button("Edit Model Map…") { shim.editModelMap() }
         Divider()
         Button("Quit (stops FauxClaude)") { NSApp.terminate(nil) }
             .keyboardShortcut("q")

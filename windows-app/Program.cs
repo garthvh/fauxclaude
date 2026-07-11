@@ -50,6 +50,7 @@ internal sealed class TrayApp : ApplicationContext
     }
 
     private static string LogPath => Path.Combine(AppDataDir, "shim.log");
+    private static string ModelMapPath => Path.Combine(AppDataDir, "model-map.json");
     private static string MockFlagPath => Path.Combine(AppDataDir, "mock.flag");
 
     private bool MockMode
@@ -76,6 +77,7 @@ internal sealed class TrayApp : ApplicationContext
         menu.Items.Add("Open Dashboard", null, (_, _) => OpenUrl($"{ShimUrl}/"));
         menu.Items.Add("Run Claude Code in Terminal", null, (_, _) => RunClaude());
         menu.Items.Add("View Log", null, (_, _) => OpenLog());
+        menu.Items.Add("Edit Model Map…", null, (_, _) => EditModelMap());
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add("Exit (stops FauxClaude)", null, (_, _) => ExitApp());
 
@@ -112,12 +114,13 @@ internal sealed class TrayApp : ApplicationContext
         };
         psi.Environment["PORT"] = Port.ToString();
         psi.Environment["MOCK"] = MockMode ? "1" : "0";
-        // Route the Haiku tier (the launcher/sims use --model haiku) to a small
-        // fast model for ~2x speed; Opus/Sonnet default to the larger model. Both
-        // fall back gracefully in the shim if not installed — so on a small-RAM
-        // box, pull ONLY qwen2.5-coder:7b and every tier routes to it.
+        // Per-Claude-model routing comes from a persistent, user-editable file
+        // (Edit Model Map… in the menu). The shim reads it and falls back to its
+        // built-in fast-Haiku default when the file is absent. Opus/Sonnet default
+        // to the larger model; both fall back if a model isn't installed — so on a
+        // small-RAM box, pull ONLY qwen2.5-coder:7b and every tier routes to it.
         if (psi.Environment["MODEL_MAP"] == null)
-            psi.Environment["MODEL_MAP"] = "{\"claude-haiku-4-5\":\"qwen2.5-coder:7b\"}";
+            psi.Environment["MODEL_MAP_FILE"] = ModelMapPath;
         if (psi.Environment["OLLAMA_MODEL"] == null)
             psi.Environment["OLLAMA_MODEL"] = "qwen2.5-coder:14b";
         try
@@ -180,6 +183,28 @@ internal sealed class TrayApp : ApplicationContext
         catch
         {
             try { Process.Start(new ProcessStartInfo("explorer.exe", $"/select,\"{LogPath}\"") { UseShellExecute = true }); }
+            catch { /* nothing more we can do */ }
+        }
+    }
+
+    // Persistent per-Claude-model routing: %LOCALAPPDATA%\fauxclaude\model-map.json.
+    // Seed it with a default the first time, open it in Notepad; the shim picks up
+    // changes on its next start (Stop/Start FauxClaude).
+    private static void EditModelMap()
+    {
+        try
+        {
+            if (!File.Exists(ModelMapPath))
+                File.WriteAllText(ModelMapPath,
+                    "{\r\n" +
+                    "  \"claude-haiku-4-5\": \"qwen2.5-coder:7b\",\r\n" +
+                    "  \"claude-opus-4-8\": \"qwen2.5-coder:14b\"\r\n" +
+                    "}\r\n");
+            Process.Start(new ProcessStartInfo("notepad.exe", $"\"{ModelMapPath}\"") { UseShellExecute = true });
+        }
+        catch
+        {
+            try { Process.Start(new ProcessStartInfo("explorer.exe", $"/select,\"{ModelMapPath}\"") { UseShellExecute = true }); }
             catch { /* nothing more we can do */ }
         }
     }

@@ -40,8 +40,28 @@ const MOCK_TOKENS = Number(process.env.MOCK_TOKENS || 60);
 const LOG = process.env.LOG === "1";
 const NUM_CTX = Number(process.env.NUM_CTX || 32768);
 const KEEP_ALIVE = process.env.KEEP_ALIVE || "30m";
+// Per-Claude-model → Ollama-model routing. Resolution order:
+//   1. MODEL_MAP env var (explicit JSON string) — power users / CLI / one-offs.
+//   2. MODEL_MAP_FILE env var → read that JSON file — the native apps point this
+//      at a persistent, user-editable config so routing survives reboots/relaunches
+//      with no env-var wrangling (see the app "Edit Model Map…" menu items).
+//   3. Built-in default (fast Haiku tier), overridable by either of the above.
+// A malformed/unreadable source falls back to the next, never crashes.
+const DEFAULT_MODEL_MAP = { "claude-haiku-4-5": "qwen2.5-coder:7b" };
 const MODEL_MAP = (() => {
-  try { return JSON.parse(process.env.MODEL_MAP || "{}"); } catch { return {}; }
+  if (process.env.MODEL_MAP) {
+    try { return JSON.parse(process.env.MODEL_MAP); }
+    catch { console.error("[fauxclaude] MODEL_MAP is not valid JSON — ignoring"); }
+  }
+  const file = process.env.MODEL_MAP_FILE;
+  if (file && fs.existsSync(file)) {
+    try {
+      const parsed = JSON.parse(fs.readFileSync(file, "utf8"));
+      console.log(`[fauxclaude] model map loaded from ${file}`);
+      return parsed;
+    } catch { console.error(`[fauxclaude] ${file} is not valid JSON — using default routing`); }
+  }
+  return DEFAULT_MODEL_MAP;
 })();
 
 let defaultOllamaModel = process.env.OLLAMA_MODEL || null;

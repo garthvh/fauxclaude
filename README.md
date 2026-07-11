@@ -84,6 +84,7 @@ From the llama in the menu bar:
 - **Run Claude Code in Terminal** — opens Terminal already wired to the shim
   (first use asks for Automation permission — that's macOS, allow it once)
 - **View Shim Log** — `~/Library/Logs/fauxclaude.log`
+- **Edit Model Map…** — opens `~/.fauxclaude-model-map.json` for persistent per-Claude-model routing (applies on next Stop/Start)
 
 Rebuild after changing `server.mjs` / `dashboard.html` / the Swift source with
 `mac-app/build-app.sh` (dev-time only; requires Xcode command line tools).
@@ -107,6 +108,7 @@ From the tray icon:
 - **Open Dashboard** — the live GUI in your browser (double-clicking the tray icon also opens it)
 - **Run Claude Code in Terminal** — opens Windows Terminal (falls back to cmd) already wired to the shim
 - **View Log** — `%LOCALAPPDATA%\fauxclaude\shim.log`
+- **Edit Model Map…** — opens `%LOCALAPPDATA%\fauxclaude\model-map.json` for persistent per-Claude-model routing (applies on next Stop/Start)
 
 Build on the Windows machine (needs the .NET 8 SDK — `winget install Microsoft.DotNet.SDK.8`):
 
@@ -239,8 +241,9 @@ from Ollama's `prompt_eval_count` / `eval_count` when available.
 |---|---|---|
 | `PORT` | `11435` | listen port |
 | `OLLAMA_URL` | `http://localhost:11434` | your Ollama instance |
-| `OLLAMA_MODEL` | first model in `/api/tags` | default backing model |
-| `MODEL_MAP` | `{}` | JSON, per-Claude-model routing, e.g. `{"claude-opus-4-8":"llama3.1:70b","claude-haiku-4-5":"llama3.2:1b"}` |
+| `OLLAMA_MODEL` | first model in `/api/tags` | default backing model (non-mapped tiers) |
+| `MODEL_MAP` | `{"claude-haiku-4-5":"qwen2.5-coder:7b"}` | JSON, per-Claude-model routing, e.g. `{"claude-opus-4-8":"llava:7b","claude-haiku-4-5":"qwen2.5-coder:7b"}` |
+| `MODEL_MAP_FILE` | — | path to a JSON file with the same shape as `MODEL_MAP`; **persistent, editable routing without env vars.** `MODEL_MAP` (if set) wins; else this file; else the built-in default. A model that isn't installed falls back automatically. |
 | `MOCK` | off | `1` = built-in mock, no Ollama |
 | `MOCK_DELAY_MS` / `MOCK_TOKENS` | `15` / `60` | mock pacing / response length |
 | `LOG` | off | `1` = request logging |
