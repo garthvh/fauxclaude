@@ -118,7 +118,14 @@ async function resolveOllamaModel(claudeModel) {
   // pulled falls through instead of hard-erroring (handy when swapping models).
   const has = (name) => name && (installed.includes(name) || installed.includes(name + ":latest"));
 
-  const mapped = MODEL_MAP[claudeModel];
+  // Match MODEL_MAP by exact key, else by prefix — Claude Code sends date-suffixed
+  // IDs for some calls (e.g. "claude-haiku-4-5-20251001"), which must still hit the
+  // undated "claude-haiku-4-5" map entry rather than falling through to the default.
+  let mapped = MODEL_MAP[claudeModel];
+  if (!mapped) {
+    const key = Object.keys(MODEL_MAP).find((k) => claudeModel.startsWith(k));
+    if (key) mapped = MODEL_MAP[key];
+  }
   if (has(mapped)) return mapped;
 
   if (has(process.env.OLLAMA_MODEL)) return process.env.OLLAMA_MODEL;
