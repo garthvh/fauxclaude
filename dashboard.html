@@ -49,6 +49,12 @@
   .tile svg { display: block; width: 100%; height: 34px; }
 
   .card { background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px; overflow-x: auto; }
+  .pager { display: flex; align-items: center; padding: 8px 12px; border-top: 1px solid var(--grid);
+           font-size: 12px; color: var(--ink-2); }
+  .pager #pg-info { flex: 1; text-align: center; }
+  .pager button { border: 1px solid var(--border); background: none; color: var(--ink-1);
+                  border-radius: 6px; padding: 3px 10px; font: inherit; cursor: pointer; }
+  .pager button:disabled { opacity: 0.4; cursor: default; }
   table { width: 100%; border-collapse: collapse; font-size: 13px; }
   th, td { text-align: left; padding: 7px 12px; border-top: 1px solid var(--grid); white-space: nowrap; }
   thead th { border-top: none; font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em;
@@ -148,6 +154,11 @@
     <tbody id="rows"><tr><td colspan="8" class="empty">Waiting for requests… point a client at this
       server with <code>ANTHROPIC_BASE_URL</code>.</td></tr></tbody>
   </table>
+  <div class="pager">
+    <button id="pg-prev" disabled>‹ Newer</button>
+    <span id="pg-info">no requests yet</span>
+    <button id="pg-next" disabled>Older ›</button>
+  </div>
 </div>
 
 <div id="overlay">
@@ -171,7 +182,9 @@
 <script>
 const records = new Map();   // id -> record
 let order = [];              // ids, newest first
-const MAX_ROWS = 100;
+const MAX_ROWS = 2000;     // keep in sync with the shim's MAX_ACTIVITY
+const PAGE_SIZE = 100;     // rows rendered per page (paging avoids a 2000-row DOM)
+let page = 0;              // 0 = newest
 
 const $ = (id) => document.getElementById(id);
 const fmt = (n) => (n >= 10000 ? (n / 1000).toFixed(1) + "k" : String(n ?? 0));
@@ -227,13 +240,21 @@ function statusCell(rec) {
 function esc(s) { return String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
 
 function render() {
+  // Stats over ALL retained records…
   let active = 0, tin = 0, tout = 0;
-  const html = [];
   for (const id of order) {
     const r = records.get(id);
     if (r.status === "active") active++;
     tin += r.inputTokens || 0; tout += r.outputTokens || 0;
-    html.push(`<tr data-id="${esc(r.id)}">
+  }
+  // …but only render the current page of rows (2000 rows at once is slow).
+  const pages = Math.max(1, Math.ceil(order.length / PAGE_SIZE));
+  if (page >= pages) page = pages - 1;
+  if (page < 0) page = 0;
+  const slice = order.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE);
+  const html = slice.map((id) => {
+    const r = records.get(id);
+    return `<tr data-id="${esc(r.id)}">
       <td>${new Date(r.ts).toLocaleTimeString()}</td>
       <td>${statusCell(r)}</td>
       <td class="model">${esc(r.model)}${r.ollamaModel ? ` <span class="arrow">→</span> ${esc(r.ollamaModel)}` : ""}</td>
@@ -242,15 +263,25 @@ function render() {
       <td class="num">${fmt(r.outputTokens)}</td>
       <td class="num">${fmtDuration(r.durationMs)}</td>
       <td class="preview" title="${esc(r.error || r.preview)}">${esc(r.error || r.preview)}</td>
-    </tr>`);
-  }
+    </tr>`;
+  });
   $("rows").innerHTML = html.join("") ||
     `<tr><td colspan="8" class="empty">Waiting for requests…</td></tr>`;
   $("t-req").textContent = fmt(order.length);
   $("t-active").textContent = fmt(active);
   $("t-in").textContent = fmt(tin);
   $("t-out").textContent = fmt(tout);
+
+  const start = order.length ? page * PAGE_SIZE + 1 : 0;
+  const end = Math.min((page + 1) * PAGE_SIZE, order.length);
+  $("pg-info").textContent = order.length
+    ? `${start}–${end} of ${fmt(order.length)}${page === 0 ? " · live" : ""}`
+    : "no requests yet";
+  $("pg-prev").disabled = page <= 0;
+  $("pg-next").disabled = page >= pages - 1;
 }
+$("pg-prev").onclick = () => { if (page > 0) { page--; render(); } };  // toward newest
+$("pg-next").onclick = () => { page++; render(); };                    // toward oldest
 
 // --- tokens/sec sparkline: sample total output tokens once per second -------
 const buckets = new Array(60).fill(0);

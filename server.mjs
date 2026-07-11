@@ -142,7 +142,7 @@ async function resolveOllamaModel(claudeModel) {
 
 const activity = [];            // capped ring buffer of request records
 const dashClients = new Set();  // open /events SSE responses
-const MAX_ACTIVITY = 200;
+const MAX_ACTIVITY = Number(process.env.MAX_ACTIVITY || 2000);
 
 // ------------------------------------------- lifetime "tokens saved" counter
 
@@ -246,7 +246,9 @@ function countSaved(rec) {
 // demand via GET /requests/:id.
 const publicRec = ({ _start, _lastPush, _cacheFraction, _cacheHit, userMessage, responseText, ...pub }) => pub;
 
-const BODY_CAP = 200_000; // chars kept per stored message/response
+// Chars kept per stored message/response for the detail view. Bounded because we
+// now retain up to MAX_ACTIVITY (~2000) records — 2000 × 200KB × 2 would be ~800MB.
+const BODY_CAP = 32_000;
 
 function appendResponse(rec, text) {
   if (rec.responseText.length < BODY_CAP) rec.responseText += text;
