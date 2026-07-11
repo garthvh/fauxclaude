@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FauxClaude — 100% locally sourced Claude</title>
+<meta name="description" content="FauxClaude impersonates the Anthropic Messages API in front of your local Ollama — free local Claude Code, a live dashboard, and a menu bar app.">
+<link rel="icon" href="llama.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  /* ---- FauxClaude style guide ------------------------------------------- */
+  :root {
+    --charcoal: #1E1E1E;   /* primary text, buttons */
+    --mime-red: #C1292E;   /* accents, active states */
+    --cream:    #F5F2EB;   /* secondary card backgrounds */
+    --gray:     #6B7280;   /* secondary text, borders */
+    --canvas:   #F8F9FA;   /* main background */
+  }
+  * { box-sizing: border-box; margin: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    background: var(--canvas); color: var(--charcoal);
+    font-family: "Inter", system-ui, sans-serif;
+    font-size: 16px; line-height: 1.6;
+  }
+  a { color: inherit; }
+  .wrap { max-width: 960px; margin: 0 auto; padding: 0 24px; }
+
+  /* wordmark */
+  .wordmark { letter-spacing: -0.03em; }
+  .wordmark .faux { font-weight: 500; }
+  .wordmark .claude { font-weight: 800; }
+  .tagline {
+    text-transform: uppercase; letter-spacing: 0.15em;
+    font-weight: 500; color: var(--gray);
+  }
+
+  /* nav */
+  nav {
+    display: flex; align-items: center; gap: 12px;
+    padding: 20px 0;
+  }
+  nav img { height: 34px; }
+  nav .wordmark { font-size: 22px; }
+  nav .links { margin-left: auto; display: flex; gap: 22px; font-size: 14px; font-weight: 500; }
+  nav .links a { text-decoration: none; color: var(--gray); }
+  nav .links a:hover { color: var(--mime-red); }
+
+  /* hero */
+  .hero { text-align: center; padding: 64px 0 48px; }
+  .hero img { height: 190px; margin-bottom: 28px; }
+  .hero .wordmark { font-size: clamp(44px, 8vw, 72px); line-height: 1.05; }
+  .hero .tagline { margin-top: 14px; font-size: clamp(12px, 2.2vw, 15px); }
+  .hero p.lede {
+    max-width: 620px; margin: 26px auto 0; color: var(--gray); font-size: 18px;
+  }
+  .cta { margin-top: 34px; display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
+  .btn {
+    display: inline-block; padding: 12px 26px; border-radius: 10px;
+    font-weight: 600; font-size: 15px; text-decoration: none;
+    border: 1.5px solid var(--charcoal); transition: all .15s ease;
+  }
+  .btn.primary { background: var(--charcoal); color: #fff; }
+  .btn.primary:hover { background: var(--mime-red); border-color: var(--mime-red); }
+  .btn.ghost:hover { border-color: var(--mime-red); color: var(--mime-red); }
+
+  /* sections */
+  section { padding: 56px 0; }
+  h2 {
+    font-size: 28px; font-weight: 700; letter-spacing: -0.02em; margin-bottom: 8px;
+  }
+  h2 + p.sub { color: var(--gray); margin-bottom: 30px; }
+  .accent { color: var(--mime-red); }
+
+  /* diagram */
+  .diagram {
+    background: var(--cream); border-radius: 14px; padding: 28px;
+    display: flex; align-items: center; justify-content: center; gap: 18px;
+    flex-wrap: wrap; font-weight: 600; font-size: 15px;
+  }
+  .diagram .node {
+    background: #fff; border: 1.5px solid var(--charcoal); border-radius: 10px;
+    padding: 12px 20px;
+  }
+  .diagram .node.red { border-color: var(--mime-red); color: var(--mime-red); }
+  .diagram .arrow { color: var(--gray); font-size: 20px; }
+
+  /* features */
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 18px; }
+  .card {
+    background: var(--cream); border-radius: 14px; padding: 24px;
+    border: 1px solid rgba(107,114,128,0.18);
+  }
+  .card h3 { font-size: 17px; font-weight: 700; margin-bottom: 8px; letter-spacing: -0.01em; }
+  .card h3::before { content: "■ "; color: var(--mime-red); font-size: 11px; vertical-align: 2px; }
+  .card p { color: var(--gray); font-size: 14.5px; }
+
+  /* quick start */
+  pre {
+    background: var(--charcoal); color: #f5f2eb; border-radius: 14px;
+    padding: 22px 26px; overflow-x: auto; font-size: 14px; line-height: 1.7;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  pre .c { color: #9aa0a6; }
+  pre .r { color: #ff8a8a; }
+  ol.steps { padding-left: 20px; color: var(--gray); margin-bottom: 22px; }
+  ol.steps li { margin-bottom: 6px; }
+  ol.steps b { color: var(--charcoal); }
+
+  footer {
+    border-top: 1px solid rgba(107,114,128,0.25);
+    padding: 34px 0 44px; margin-top: 30px;
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    color: var(--gray); font-size: 14px;
+  }
+  footer img { height: 26px; }
+  footer .links { margin-left: auto; display: flex; gap: 18px; }
+  footer a { color: var(--gray); }
+  footer a:hover { color: var(--mime-red); }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <nav>
+    <img src="llama.png" alt="FauxClaude llama">
+    <span class="wordmark"><span class="faux">Faux</span><span class="claude">Claude</span></span>
+    <span class="links">
+      <a href="#features">Features</a>
+      <a href="#quickstart">Quick start</a>
+      <a href="https://github.com/garthvh/fauxclaude">GitHub</a>
+    </span>
+  </nav>
+
+  <header class="hero">
+    <img src="llama-large.png" alt="The FauxClaude mime llama">
+    <div class="wordmark"><span class="faux">Faux</span><span class="claude">Claude</span></div>
+    <div class="tagline">100% locally sourced Claude</div>
+    <p class="lede">
+      A zero-dependency server that impersonates the Anthropic&nbsp;API in front of your local
+      Ollama — so Claude&nbsp;Code runs free on your own hardware, with a live dashboard
+      and a menu&nbsp;bar app to run the show.
+    </p>
+    <div class="cta">
+      <a class="btn primary" href="https://github.com/garthvh/fauxclaude">Get FauxClaude</a>
+      <a class="btn ghost" href="#quickstart">Quick start</a>
+    </div>
+  </header>
+
+  <section>
+    <div class="diagram" role="img" aria-label="Claude Code talks to FauxClaude, which talks to Ollama">
+      <span class="node">Claude Code</span>
+      <span class="arrow">→</span>
+      <span class="node red">FauxClaude :11435</span>
+      <span class="arrow">→</span>
+      <span class="node">Ollama :11434</span>
+    </div>
+  </section>
+
+  <section id="features">
+    <h2>What's in the <span class="accent">box</span></h2>
+    <p class="sub">Everything is plain Node and native apps — no frameworks, no npm install, nothing to babysit.</p>
+    <div class="grid">
+      <div class="card">
+        <h3>Free local Claude Code</h3>
+        <p>Point Claude Code at FauxClaude and it runs against your Ollama model — streaming,
+           tool use, token counting, the whole Messages API surface. Your claude.ai login and
+           paid sessions stay untouched.</p>
+      </div>
+      <div class="card">
+        <h3>Menu bar &amp; system tray apps</h3>
+        <p>A SwiftUI menu bar llama on macOS and a WinForms tray app on Windows. Start, stop,
+           flip modes, open the dashboard, or launch a wired-up Claude Code terminal in one click.</p>
+      </div>
+      <div class="card">
+        <h3>Live dashboard</h3>
+        <p>Every request streams onto a live table — status, model routing, token counts,
+           duration. Click a row for the full message and response.</p>
+      </div>
+      <div class="card">
+        <h3>"Saved at Claude API rates"</h3>
+        <p>An all-time counter prices your local traffic at real API rates, per requested
+           model. Watch the dollars you didn't spend pile up.</p>
+      </div>
+      <div class="card">
+        <h3>Mock mode for load testing</h3>
+        <p>No Ollama? No problem. Mock mode streams deterministic responses with configurable
+           pacing — perfect for hammering a Claude frontend with zero token cost.</p>
+      </div>
+      <div class="card">
+        <h3>Model routing</h3>
+        <p>Map Claude model tiers to different local models — Opus requests to your big coder,
+           Haiku requests to a 3B. Pull or delete Ollama models any time; no restart needed.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="quickstart">
+    <h2>Quick <span class="accent">start</span></h2>
+    <p class="sub">Three moves on a Mac. Windows works the same via the tray app.</p>
+    <ol class="steps">
+      <li><b>Install the prerequisites</b> — Node 18+, Ollama, and Claude Code.</li>
+      <li><b>Pull a model that can drive tools</b> — qwen2.5-coder:14b is a great start.</li>
+      <li><b>Launch FauxClaude.app</b> and click <b>Run Claude Code in Terminal</b>.</li>
+    </ol>
+<pre><span class="c"># get it</span>
+git clone https://github.com/garthvh/fauxclaude && cd fauxclaude
+
+<span class="c"># a local model with tool support</span>
+ollama pull qwen2.5-coder:14b
+
+<span class="c"># build the mac app once, then launch it from the menu bar forever</span>
+./mac-app/build-app.sh && open FauxClaude.app
+
+<span class="c"># or skip the app and go manual</span>
+node server.mjs &
+ANTHROPIC_BASE_URL=http://127.0.0.1:11435 claude</pre>
+  </section>
+
+  <footer>
+    <img src="llama.png" alt="">
+    <span><span class="wordmark"><span class="faux">Faux</span><span class="claude">Claude</span></span> · no tokens were billed in the making of this site</span>
+    <span class="links">
+      <a href="https://github.com/garthvh/fauxclaude">GitHub</a>
+      <a href="https://ollama.com">Ollama</a>
+    </span>
+  </footer>
+</div>
+
+</body>
+</html>
