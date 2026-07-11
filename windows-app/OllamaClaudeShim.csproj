@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>OllamaClaudeShim</AssemblyName>
+    <RootNamespace>OllamaClaudeShim</RootNamespace>
+    <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
+  </PropertyGroup>
+
+  <!-- bundle the shim next to the exe so the app is self-contained -->
+  <ItemGroup>
+    <Content Include="..\server.mjs" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\dashboard.html" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>

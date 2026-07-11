@@ -66,6 +66,27 @@ From the bolt icon in the menu bar:
 Rebuild after changing `server.mjs` / `dashboard.html` / the Swift source with
 `mac-app/build-app.sh` (dev-time only; requires Xcode command line tools).
 
+## The Windows app (system tray)
+
+`windows-app/` is the Windows equivalent — a .NET 8 WinForms **system tray app**
+(the icons by the clock) with the same menu as the Mac app: shim status, Ollama
+status, Start/Stop, Mock Mode toggle, Open Dashboard, Run Claude Code in Terminal
+(prefers Windows Terminal, falls back to cmd), View Log, Exit. It bundles
+`server.mjs`/`dashboard.html` next to the exe, logs to
+`%LOCALAPPDATA%\ollama-claude-shim\shim.log`, and double-clicking the tray icon
+opens the dashboard.
+
+Build on the Windows machine (needs the .NET 8 SDK — `winget install Microsoft.DotNet.SDK.8`):
+
+```powershell
+cd windows-app
+dotnet publish -c Release -r win-x64 --self-contained false
+# exe lands in bin\Release\net8.0-windows\win-x64\publish\
+```
+
+Prereqs on Windows: Node 18+ (`winget install OpenJS.NodeJS.LTS`), Ollama for
+Windows, and the `claude` CLI.
+
 ## Daily driver: local Claude Code with zero token spend
 
 The `claude-local` launchers start the shim if it isn't running and drop you into
