@@ -114,7 +114,7 @@ final class ShimController: ObservableObject {
     func runClaude() {
         if process == nil && !running { start() }
         let cmd = "export ANTHROPIC_BASE_URL=\(shimURL); " +
-                  "export ANTHROPIC_API_KEY=sk-local-ollama; " +
+                  "export ANTHROPIC_AUTH_TOKEN=sk-local-ollama; " +
                   "export CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1; claude"
         let script = """
         tell application "Terminal"

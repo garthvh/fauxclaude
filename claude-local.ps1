@@ -33,7 +33,7 @@ if ($env:MOCK -ne "1") {
 
 Write-Host "[claude-local] dashboard: $ShimUrl/"
 $env:ANTHROPIC_BASE_URL = $ShimUrl
-$env:ANTHROPIC_API_KEY = "sk-local-ollama"
+$env:ANTHROPIC_AUTH_TOKEN = "sk-local-ollama"
 $env:CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC = "1"
 
 & claude @args

@@ -27,7 +27,7 @@ fi
 
 echo "[claude-local] dashboard: ${SHIM_URL}/"
 export ANTHROPIC_BASE_URL="$SHIM_URL"
-export ANTHROPIC_API_KEY="sk-local-ollama"
+export ANTHROPIC_AUTH_TOKEN="sk-local-ollama"
 export CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1
 
 exec claude "$@"

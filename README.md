@@ -19,7 +19,7 @@ ollama pull llama3.2
 node server.mjs
 
 # 3. Point any Claude client at it
-ANTHROPIC_BASE_URL=http://127.0.0.1:11435 ANTHROPIC_API_KEY=sk-test claude -p "say hi"
+ANTHROPIC_BASE_URL=http://127.0.0.1:11435 ANTHROPIC_AUTH_TOKEN=sk-test claude -p "say hi"
 ```
 
 Any `x-api-key` is accepted. Any `claude-*` model name is routed to your Ollama model.
@@ -39,8 +39,14 @@ Claude Code honors `ANTHROPIC_BASE_URL`, exercises the full API surface (SSE str
 tool use, token counting, huge system prompts), and needs no extra install:
 
 ```sh
-ANTHROPIC_BASE_URL=http://127.0.0.1:11435 ANTHROPIC_API_KEY=sk-test claude
+ANTHROPIC_BASE_URL=http://127.0.0.1:11435 ANTHROPIC_AUTH_TOKEN=sk-test claude
 ```
+
+> Use `ANTHROPIC_AUTH_TOKEN` (not `ANTHROPIC_API_KEY`) with Claude Code — the
+> shim accepts either, but a dummy `ANTHROPIC_API_KEY` triggers Claude Code's
+> "Both claude.ai and ANTHROPIC_API_KEY set" auth-conflict warning when you're
+> also logged into claude.ai. Never `/logout` to silence it — that would break
+> your real claude.ai sessions.
 
 GUI alternatives that accept a custom Anthropic base URL: **Chatbox**, **LibreChat**
 (set the Anthropic reverse-proxy/base URL to `http://127.0.0.1:11435`). CORS is enabled,

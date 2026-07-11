@@ -156,7 +156,7 @@ internal sealed class TrayApp : ApplicationContext
     private void RunClaude()
     {
         if (_shim is not { HasExited: false } && !_running) StartShim();
-        var cmd = $"set ANTHROPIC_BASE_URL={ShimUrl}&& set ANTHROPIC_API_KEY=sk-local-ollama&& " +
+        var cmd = $"set ANTHROPIC_BASE_URL={ShimUrl}&& set ANTHROPIC_AUTH_TOKEN=sk-local-ollama&& " +
                   "set CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1&& claude";
         // prefer Windows Terminal when installed, fall back to plain cmd
         try
