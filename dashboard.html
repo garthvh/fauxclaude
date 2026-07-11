@@ -53,6 +53,12 @@
   }
   .tile .sub { color: var(--ink-muted); font-size: 12px; font-size: clamp(11px, 5.5cqi, 13px); }
   .tile svg { display: block; width: 100%; height: clamp(34px, 20cqi, 56px); }
+  /* Plain label+number tiles: let the number own the leftover space and sit
+     centered in it (fitValues() grows the font to fill), so it never strands at
+     the bottom. Tiles with a sub-line or sparkline keep their stacked layout. */
+  .tile:not(:has(.sub)):not(:has(svg)) .value {
+    flex: 1 1 auto; min-height: 0; display: flex; align-items: center;
+  }
 
   .card { background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px; overflow-x: auto; }
   .pager { display: flex; align-items: center; padding: 8px 12px; border-top: 1px solid var(--grid);
@@ -246,19 +252,37 @@ function statusCell(rec) {
 
 function esc(s) { return String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
 
-// Size each stat number as big as fits its tile: the CSS aims high, this shrinks
-// only the values whose text is wider than the tile (long token counts, dollar
-// amounts) so short numbers stay huge and nothing clips.
+// Size each stat number to fill its tile. Plain label+number tiles grow the
+// number to fill the leftover width AND height (so it fills the gap on tall
+// tiles); tiles that carry sub-text or a sparkline only shrink long numbers to
+// fit the width, keeping their existing layout.
 function fitValues() {
+  const range = document.createRange();
   for (const el of document.querySelectorAll(".tile .value")) {
-    el.style.fontSize = "";                    // reset to the CSS-driven size
-    const avail = el.clientWidth;
-    if (!avail) continue;
-    const w = el.scrollWidth;                  // full text width (white-space:nowrap)
-    if (w > avail) {
-      const base = parseFloat(getComputedStyle(el).fontSize);
-      el.style.fontSize = Math.max(16, Math.floor(base * (avail / w) * 0.97)) + "px";  // 0.97 = sub-pixel safety
+    el.style.fontSize = "";                          // reset to the CSS-driven size
+    const availW = el.clientWidth;
+    if (!availW || !el.firstChild) continue;
+    // Measure the actual text box — the value is a stretched flex item, so its own
+    // scrollWidth is the tile width, not the glyphs'. A Range gives the real size.
+    range.selectNodeContents(el);
+    const r = range.getBoundingClientRect();
+    if (!r.width || !r.height) continue;
+    const base = parseFloat(getComputedStyle(el).fontSize);
+    const tile = el.closest(".tile");
+    const fillH = !tile.querySelector(".sub") && !tile.querySelector("svg");
+    let ratio = availW / r.width;                    // fit the width
+    if (fillH) {
+      // Leftover vertical space = tile content height minus the other rows (label);
+      // let the number grow to fill it so it doesn't strand at the bottom.
+      const cs = getComputedStyle(tile);
+      let used = parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom);
+      for (const c of tile.children) if (c !== el) used += c.offsetHeight;
+      const availH = tile.clientHeight - used;
+      if (availH > 0) ratio = Math.min(ratio, availH / r.height);
+    } else {
+      ratio = Math.min(1, ratio);                    // sub/sparkline tiles: shrink only, never grow
     }
+    el.style.fontSize = Math.max(16, Math.floor(base * ratio * 0.92)) + "px";  // 0.92 = breathing room
   }
 }
 let fitScheduled = false;
