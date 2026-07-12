@@ -80,14 +80,21 @@ From the llama in the menu bar:
 - **live status** — shim running/stopped + mode, Ollama up/down + model count
 - **Start / Stop Shim** — the shim runs only while the app does; quitting stops it
 - **Mock Mode** toggle — flip to canned replies (no Ollama) and back; restarts the shim
+- **Ollama Parallelism** — one-click switch between **Interactive** (`OLLAMA_NUM_PARALLEL=1`,
+  keeps the prompt-prefix cache so turn 2+ are fast) and **Simulation** (4 slots, for load
+  testing). It persists the value and restarts Ollama for you.
 - **Open Dashboard** — the live GUI in your default browser
-- **Run Claude Code in Terminal** — opens Terminal already wired to the shim
+- **Run Claude Code in Terminal…** — pick a project folder; opens Terminal in it, wired to the shim
   (first use asks for Automation permission — that's macOS, allow it once)
+- **Open Project in VS Code…** — pick a folder; opens it in an *isolated* VS Code instance
+  pointed at the shim (see [VS Code](#vs-code) below)
 - **View Shim Log** — `~/Library/Logs/fauxclaude.log`
 - **Edit Model Map…** — opens `~/.fauxclaude-model-map.json` for persistent per-Claude-model routing (applies on next Stop/Start)
 
 Rebuild after changing `server.mjs` / `dashboard.html` / the Swift source with
-`mac-app/build-app.sh` (dev-time only; requires Xcode command line tools).
+`mac-app/build-app.sh`, then install it: `ditto FauxClaude.app /Applications/FauxClaude.app`
+(dev-time only; requires Xcode command line tools). `open -a FauxClaude` launches the
+*installed* copy, so a rebuild in the repo won't take effect until you copy it over.
 
 ## The Windows app (system tray)
 
@@ -102,11 +109,16 @@ macOS app, it starts with Windows and keeps Ollama serving across reboots).
 
 From the tray icon:
 
+The Windows app is kept in **feature lock-step** with the Mac app — same menu:
+
 - **live status** — shim running/stopped + mode, Ollama up/down + model count
 - **Start / Stop FauxClaude** — the shim runs only while the app does; exiting stops it
 - **Mock Mode** toggle — flip to canned replies (no Ollama) and back; restarts the shim
+- **Ollama Parallelism** — Interactive (1) / Simulation (4); persists `OLLAMA_NUM_PARALLEL`
+  (via the user env) and restarts Ollama
 - **Open Dashboard** — the live GUI in your browser (double-clicking the tray icon also opens it)
-- **Run Claude Code in Terminal** — opens Windows Terminal (falls back to cmd) already wired to the shim
+- **Run Claude Code in Terminal…** — pick a folder; opens Windows Terminal (falls back to cmd) in it, wired to the shim
+- **Open Project in VS Code…** — pick a folder; opens it in an isolated VS Code instance pointed at the shim
 - **View Log** — `%LOCALAPPDATA%\fauxclaude\shim.log`
 - **Edit Model Map…** — opens `%LOCALAPPDATA%\fauxclaude\model-map.json` for persistent per-Claude-model routing (applies on next Stop/Start)
 
@@ -117,6 +129,26 @@ cd windows-app
 dotnet publish -c Release -r win-x64 --self-contained false
 # exe lands in bin\Release\net8.0-windows\win-x64\publish\
 ```
+
+## VS Code
+
+The VS Code Claude Code extension reads `ANTHROPIC_BASE_URL` from its **process
+environment** at launch — a `settings.json` (VS Code *or* project-level `.claude/`)
+can't redirect it. So **"Open Project in VS Code…"** launches a dedicated VS Code
+instance (its own `--user-data-dir`, extensions shared) with the shim env set, opening
+the folder you pick. That instance is pointed at FauxClaude; your normal VS Code is
+untouched.
+
+It also installs a tiny bundled extension, **FauxClaude Status** (`vscode-extension/`):
+a 🦙 in the status bar that lights up in windows routed to the shim (and shows
+"offline" if the shim is down). The isolated instance gets a **purple status bar** and
+a "🦙 FauxClaude" window title so it's unmistakable.
+
+> **macOS caveat:** there's only one "Visual Studio Code" app, so while the FauxClaude
+> instance is running, folders you open via Finder/Dock get pulled *into* it and inherit
+> the shim env. Keep the FauxClaude (purple) window for local work only; for normal
+> projects, quit it first and open VS Code the normal way. The dashboard is the source
+> of truth — a window that never shows up there isn't routed.
 
 ## Daily driver: local Claude Code with zero token spend
 
@@ -141,11 +173,17 @@ sessions (real API) are untouched.
 and long context; small chat models will flail. Reasonable choices, biggest first:
 
 ```sh
-ollama pull qwen3-coder     # strong agentic/tool-calling coder (needs RAM/VRAM)
-ollama pull devstral        # Mistral's agentic coding model
+ollama pull qwen3-vl:30b-a3b-instruct  # MoE (~3B active → fast), vision + coding + tools, 256k ctx
+ollama pull qwen3-coder                # strong agentic/tool-calling coder (needs RAM/VRAM)
+ollama pull devstral                   # Mistral's agentic coding model
 ollama pull qwen2.5-coder:14b
-ollama pull llama3.1:8b     # lighter; fine for simple edits and Q&A
+ollama pull llama3.1:8b                # lighter; fine for simple edits and Q&A
 ```
+
+`qwen3-vl:30b-a3b-instruct` is a sweet spot: a Mixture-of-Experts model (only ~3B params
+active per token, so prefill/generation stay fast), it **also does vision** (FauxClaude
+forwards image blocks, so pasted screenshots work), and its 256k context leaves plenty of
+room for Claude Code's big prompts. It's the **Mac app's default** on a roomy box (≥ 64 GB).
 
 Route Claude Code's model tiers to different local models if you like:
 
@@ -153,11 +191,19 @@ Route Claude Code's model tiers to different local models if you like:
 MODEL_MAP='{"claude-opus-4-8":"qwen3-coder","claude-haiku-4-5":"llama3.2:3b"}' ./claude-local
 ```
 
-Two defaults matter a lot here (both already set by the shim):
+A few defaults matter a lot here (all already set by the shim):
 
-- **`NUM_CTX` (default 32768)** — Ollama's out-of-the-box context is ~4k tokens, which
-  silently truncates Claude Code's system prompt and makes any model look broken.
-  Raise it further if your hardware allows.
+- **`NUM_CTX` (default 131072)** — Ollama's out-of-the-box context is ~4k tokens, which
+  silently truncates Claude Code's system prompt. Claude Code conversations also *grow*
+  past 32k, and if the prompt fills the whole window there's no room left to generate —
+  replies truncate and Claude Code loops on "Output token limit hit". 128k leaves headroom.
+  Ollama clamps this to the model's trained max (`ollama show` → context length), so a 32k
+  model just gets 32k. **Lower it on a small-RAM box** (the KV cache grows with it).
+- **`NUM_PREDICT_MAX` (default 16384)** — a hard cap on generated tokens. Local models
+  occasionally run away (repetition loop); with a big context there's room to hit Claude
+  Code's 32000 output guard and error. The cap turns a runaway into a harmless truncation.
+- **`NUM_BATCH` (default 2048)** — prompt-eval (prefill) batch size; larger = faster
+  prefill of Claude Code's big prompts.
 - **`KEEP_ALIVE` (default -1 = forever)** — keeps the model resident so you never
   pay the cold model-load after an idle gap (the worst local-model latency). The
   shim also pre-loads the model whenever Ollama becomes reachable — at launch and
@@ -176,19 +222,23 @@ Swapping Ollama for llama.cpp directly does **not** help (Ollama *is* llama.cpp
 underneath); flash attention is a wash on Apple Silicon. The levers that actually
 move the needle:
 
-- **Smaller model = ~2× (default).** The launcher/terminal and sims use the Haiku
-  tier, which FauxClaude routes to `qwen2.5-coder:7b` (~60 tok/s vs ~32 for the
-  14b). Opus/Sonnet default to `qwen2.5-coder:14b` for quality. Change the routing
-  with `MODEL_MAP` / `OLLAMA_MODEL` (a tier pointing at a model you haven't pulled
-  falls back automatically). For an even faster sim, pull a 3b (`qwen2.5-coder:3b`,
-  `llama3.2:3b`) and map Haiku to it.
+- **Fewer active params = faster.** A smaller (or Mixture-of-Experts) model streams
+  fewer weights per token. The shim's built-in default routes the Haiku tier to
+  `qwen2.5-coder:7b` (~60 tok/s vs ~32 for the 14b) when it's installed; MoE models
+  like `qwen3-vl:30b-a3b-instruct` are fast *and* capable because only ~3B params are
+  active. Change routing with `MODEL_MAP` / `OLLAMA_MODEL` (a tier pointing at a model
+  you haven't pulled falls back automatically). For an even faster sim, pull a 3b
+  (`qwen2.5-coder:3b`, `llama3.2:3b`) and map Haiku to it.
 - **Concurrency batching for many parallel requests.** Ollama defaults
-  `OLLAMA_NUM_PARALLEL` to 1 for a 14b, so a sim firing N requests at once
-  *serializes* them. Raise it and the GPU batches them, multiplying aggregate
-  throughput. macOS Ollama app: `launchctl setenv OLLAMA_NUM_PARALLEL 3`, then
-  quit & reopen Ollama. Windows: set the `OLLAMA_NUM_PARALLEL` user env var and
-  restart Ollama. (Some ggml/Metal builds have had concurrency crashes — start at
-  2 and confirm stability.)
+  `OLLAMA_NUM_PARALLEL` to 1, so a sim firing N requests at once *serializes* them.
+  Raise it and the GPU batches them, multiplying aggregate throughput. The app's
+  **Ollama Parallelism** menu flips this for you (and restarts Ollama); by hand it's
+  `launchctl setenv OLLAMA_NUM_PARALLEL 4` then quit/reopen Ollama on macOS, or the
+  `OLLAMA_NUM_PARALLEL` user env var + restart on Windows. **But keep it at `1` for
+  *interactive* Claude Code:** extra slots split the KV cache so consecutive turns land
+  on empty slots and re-prefill the whole ~20–30k-token prompt (~100s on a 14b) instead
+  of reusing the cached prefix. One slot = fast warm turns; raise it only for sims.
+  (Some ggml/Metal builds have had concurrency crashes — confirm stability.)
 - **Auto warm-up on restart.** When Ollama restarts (reboot, quit/reopen, crash),
   it unloads every model, so the next request would pay the cold model-load. The
   shim watches Ollama's reachability and, on a down→up transition, fires a tiny
@@ -200,14 +250,15 @@ move the needle:
 ### Sizing to your RAM
 
 Generation and KV cache both live in RAM (unified memory on Apple Silicon), so the
-budget matters. Each parallel slot allocates its own KV cache (~2–3 GB per slot at
-the default 32k context), and holding two models resident costs both weight sets.
+budget matters. The KV cache grows with `NUM_CTX` (**128k default**) *and* with each
+parallel slot, and holding two models resident costs both weight sets. On a small box,
+drop `NUM_CTX` — that's the biggest lever.
 
 | Box RAM | Recommended setup |
 |---|---|
-| **≥ 64 GB** | 7b + 14b both resident (Haiku→7b, Opus→14b), `OLLAMA_NUM_PARALLEL=4`. |
-| **32 GB** | Pull **only** `qwen2.5-coder:7b` (~4.7 GB) — every tier falls back to it, so the 9 GB 14b never loads. `OLLAMA_NUM_PARALLEL=2–3`. Optionally drop `NUM_CTX` (env, default 32768) to `8192` if your sim prompts are short — big KV-cache savings and room for more parallelism. |
-| **16 GB** | `qwen2.5-coder:3b` (~2 GB) or `llama3.2:3b`, `NUM_PARALLEL=2`, `NUM_CTX=8192`. Or mock mode. |
+| **≥ 64 GB** | `qwen3-vl:30b-a3b-instruct` (~19 GB, vision + coding, MoE-fast) as the single default — the Mac app's default. Or 7b + 14b both resident, `OLLAMA_NUM_PARALLEL=4` for sims. |
+| **32 GB** | Pull **only** `qwen2.5-coder:7b` (~4.7 GB) — every tier falls back to it, so the 9 GB 14b never loads. Drop `NUM_CTX` to `32768` (or less), `OLLAMA_NUM_PARALLEL=1` interactive / `2` for sims. |
+| **16 GB** | `qwen2.5-coder:3b` (~2 GB) or `llama3.2:3b`, `NUM_CTX=16384`, `OLLAMA_NUM_PARALLEL=1`. Or mock mode. |
 
 If you keep both models on a 32 GB box, set `OLLAMA_MAX_LOADED_MODELS=1` so Ollama
 holds one at a time (it reloads when you switch tiers) rather than risking an OOM —
@@ -230,13 +281,17 @@ updated live over SSE:
   a write (1.25×) the first time — the tile shows the % of input served from cache
   and a per-tier cost split. (Conversation-history caching isn't modelled, so long
   sessions are slightly over-estimated.)
-- a request table — status (streaming / done / error with the failure message),
-  Claude model → Ollama model routing, stream flag, live-ticking token counts,
-  duration, and a preview of the last user message
+- a request table — status (streaming / done / error with the failure message /
+  **canceled** in orange when the client disconnects mid-request), Claude model →
+  Ollama model routing, stream flag, live-ticking token counts, duration, and a
+  preview of the last user message (system-reminder / interrupt boilerplate stripped
+  so you see what was actually typed)
 
-The last 200 requests are kept server-side, so reloading the page keeps history.
-Light and dark mode follow the system setting. `claude-local` prints the URL on
-launch.
+Up to **~2000 requests** are kept server-side (`MAX_ACTIVITY`) with client-side table
+paging, so reloading the page keeps history. When Claude Code interrupts a request
+(Esc), the shim aborts the upstream Ollama call and marks the row canceled instead of
+leaving it stuck "active". Light and dark mode follow the system setting. `claude-local`
+prints the URL on launch.
 
 ## What's implemented
 
@@ -247,7 +302,7 @@ launch.
 | `GET /v1/models`, `GET /v1/models/:id` | advertises current Claude model ids |
 | `GET /` | live dashboard (see above) |
 | `GET /events` | the dashboard's SSE feed (snapshot + per-request updates) |
-| `GET /health` | mode, ollama url, model map |
+| `GET /health` | mode, ollama url, default model, model map |
 
 Errors use the real Anthropic envelope (`{"type":"error","error":{...}}`). Usage numbers come
 from Ollama's `prompt_eval_count` / `eval_count` when available.
@@ -261,6 +316,11 @@ from Ollama's `prompt_eval_count` / `eval_count` when available.
 | `OLLAMA_MODEL` | first model in `/api/tags` | default backing model (non-mapped tiers) |
 | `MODEL_MAP` | `{"claude-haiku-4-5":"qwen2.5-coder:7b"}` | JSON, per-Claude-model routing, e.g. `{"claude-opus-4-8":"llava:7b","claude-haiku-4-5":"qwen2.5-coder:7b"}` |
 | `MODEL_MAP_FILE` | — | path to a JSON file with the same shape as `MODEL_MAP`; **persistent, editable routing without env vars.** `MODEL_MAP` (if set) wins; else this file; else the built-in default. A model that isn't installed falls back automatically. |
+| `NUM_CTX` | `131072` | Ollama context window (clamped to the model's trained max) |
+| `NUM_PREDICT_MAX` | `16384` | hard cap on generated tokens per request (runaway guard) |
+| `NUM_BATCH` | `2048` | prompt-eval (prefill) batch size |
+| `KEEP_ALIVE` | `-1` | how long Ollama keeps the model loaded (`-1` = forever, `0` = unload now, or a duration like `30m`) |
+| `MAX_ACTIVITY` | `2000` | requests retained server-side for the dashboard |
 | `MOCK` | off | `1` = built-in mock, no Ollama |
 | `MOCK_DELAY_MS` / `MOCK_TOKENS` | `15` / `60` | mock pacing / response length |
 | `LOG` | off | `1` = request logging |

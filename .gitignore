@@ -2,6 +2,10 @@
 FauxClaude.app/
 OllamaClaudeShim.app/
 
+# windows-app build output — rebuild with `dotnet publish`
+windows-app/bin/
+windows-app/obj/
+
 # runtime artifacts
 shim.log
 *.log
