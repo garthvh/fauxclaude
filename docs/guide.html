@@ -111,6 +111,15 @@
   .card h4 { font-size: 14px; font-weight: 700; margin-bottom: 6px; }
   .card p { color: var(--gray); font-size: 13.5px; margin: 0; }
 
+  figure { margin: 18px 0; }
+  figure img {
+    max-width: 100%; display: block; border-radius: 12px;
+    border: 1px solid rgba(107,114,128,0.18);
+  }
+  figure figcaption { color: var(--gray); font-size: 13px; margin-top: 8px; }
+  .shots { display: flex; gap: 20px; flex-wrap: wrap; align-items: flex-start; }
+  .shots figure { flex: 0 0 auto; margin: 18px 0; }
+
   .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
   .dot.done { background: #0ca30c; }
   .dot.error { background: #d03b3b; }
@@ -253,6 +262,10 @@ node server.mjs</pre>
       <p>Drag it to <code>/Applications</code> and launch from Spotlight. It bundles
       its own copy of the shim, so it's fully self-contained. Needs Node&nbsp;18+
       (<code>brew install node</code>) and the Ollama app running.</p>
+      <figure>
+        <img src="screenshots/mac-menu.png" alt="FauxClaude menu bar dropdown, showing status, Mock Mode, Ollama Parallelism, Open Dashboard, Run Claude Code in Terminal, Open Project in VS Code, View Log, Edit Model Map, and Quit">
+        <figcaption>Everything lives in the menu bar — no terminal required.</figcaption>
+      </figure>
       <div class="tscroll"><table>
         <tr><th>Menu item</th><th>What it does</th></tr>
         <tr><td>Start / Stop FauxClaude</td><td>the shim runs only while the app does</td></tr>
@@ -279,6 +292,10 @@ node server.mjs</pre>
       <p>Same menu, same behavior: Mock Mode, Ollama Parallelism, Open Dashboard,
       Run Claude Code in Terminal…, Open Project in VS Code…, View Log, Edit Model Map….
       Needs Node&nbsp;18+ and Ollama for Windows.</p>
+      <figure>
+        <img src="screenshots/windows-menu.png" alt="FauxClaude system tray context menu on Windows, showing the same items as the Mac menu">
+        <figcaption>The tray icon's context menu — identical items to the Mac app.</figcaption>
+      </figure>
       <pre>cd windows-app
 dotnet publish -c Release -r win-x64 --self-contained false
 <span class="c"># exe lands in bin\Release\net8.0-windows\win-x64\publish\</span></pre>
@@ -335,6 +352,10 @@ claude-local.cmd -p "explain this repo"</pre>
       all-time <b>"Saved at Claude API rates"</b> estimate — cache-aware, priced per
       the model the client actually asked for. Below that, a paged table of up to
       ~2000 recent requests:</p>
+      <figure>
+        <img src="screenshots/dashboard.png" alt="The FauxClaude live dashboard: stat tiles for requests, tokens, and savings, plus a table of recent requests with their routing, timing, and last message">
+        <figcaption>Live traffic against qwen3-vl:30b-a3b-instruct, routed per Claude tier.</figcaption>
+      </figure>
       <ul>
         <li><span class="dot active"></span><b>active</b> — streaming or working</li>
         <li><span class="dot done"></span><b>done</b></li>
