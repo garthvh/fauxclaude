@@ -89,7 +89,7 @@ internal sealed class TrayApp : ApplicationContext
         menu.Items.Add(new ToolStripSeparator());
 
         menu.Items.Add("Open Dashboard", null, (_, _) => OpenUrl($"{ShimUrl}/"));
-        menu.Items.Add("Run Claude Code in Terminal", null, (_, _) => RunClaude());
+        menu.Items.Add("Run Claude Code in Terminal…", null, (_, _) => RunClaude());
         menu.Items.Add("Open Project in VS Code…", null, (_, _) => OpenVSCode());
         menu.Items.Add("View Log", null, (_, _) => OpenLog());
         menu.Items.Add("Edit Model Map…", null, (_, _) => EditModelMap());
@@ -248,6 +248,18 @@ internal sealed class TrayApp : ApplicationContext
     private void RunClaude()
     {
         if (_shim is not { HasExited: false } && !_running) StartShim();
+
+        string folder;
+        using (var dlg = new FolderBrowserDialog
+        {
+            Description = "Choose a project folder to run Claude Code in, pointed at your local shim.",
+            UseDescriptionForTitle = true,
+        })
+        {
+            if (dlg.ShowDialog() != DialogResult.OK || string.IsNullOrEmpty(dlg.SelectedPath)) return;
+            folder = dlg.SelectedPath;
+        }
+
         // No credential env vars: Claude Code's claude.ai login rides through to
         // the shim (which ignores auth); setting one alongside a login triggers
         // Claude Code's auth-conflict warning. Empty `set X=` unsets in cmd.
@@ -256,14 +268,15 @@ internal sealed class TrayApp : ApplicationContext
         var cmd = $"set ANTHROPIC_API_KEY=&& set ANTHROPIC_AUTH_TOKEN=&& set ANTHROPIC_BASE_URL={ShimUrl}&& " +
                   "set CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1&& " +
                   "claude";
-        // prefer Windows Terminal when installed, fall back to plain cmd
+        // prefer Windows Terminal when installed (its -d sets the starting dir),
+        // fall back to plain cmd with WorkingDirectory.
         try
         {
-            Process.Start(new ProcessStartInfo("wt.exe", $"cmd /k \"{cmd}\"") { UseShellExecute = true });
+            Process.Start(new ProcessStartInfo("wt.exe", $"-d \"{folder}\" cmd /k \"{cmd}\"") { UseShellExecute = true });
         }
         catch
         {
-            Process.Start(new ProcessStartInfo("cmd.exe", $"/k \"{cmd}\"") { UseShellExecute = true });
+            Process.Start(new ProcessStartInfo("cmd.exe", $"/k \"{cmd}\"") { UseShellExecute = true, WorkingDirectory = folder });
         }
     }
 

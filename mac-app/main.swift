@@ -142,21 +142,38 @@ final class ShimController: ObservableObject {
         NSWorkspace.shared.open(URL(string: "\(shimURL)/")!)
     }
 
+    // Folder chooser shared by the Terminal and VS Code launchers.
+    private func pickFolder(_ message: String) -> URL? {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.allowsMultipleSelection = false
+        panel.prompt = "Open in FauxClaude"
+        panel.message = message
+        panel.directoryURL = FileManager.default.homeDirectoryForCurrentUser
+        NSApp.activate(ignoringOtherApps: true)
+        return panel.runModal() == .OK ? panel.url : nil
+    }
+
     func runClaude() {
         if process == nil && !running { start() }
+        guard let folder = pickFolder("Choose a project folder to run Claude Code in, pointed at your local shim.") else { return }
         // No credential env vars: Claude Code's existing claude.ai login rides
         // through to the shim (which ignores auth). Setting ANTHROPIC_API_KEY or
         // ANTHROPIC_AUTH_TOKEN alongside a claude.ai login triggers Claude Code's
-        // auth-conflict warning, so unset both defensively.
-        // Launch Claude Code with its own model and thinking settings (no --model,
-        // no MAX_THINKING_TOKENS); the shim routes each tier per the model map.
-        let cmd = "unset ANTHROPIC_API_KEY ANTHROPIC_AUTH_TOKEN; " +
+        // auth-conflict warning, so unset both defensively. cd into the chosen
+        // project first (single-quote-escaped for the shell).
+        let dir = folder.path.replacingOccurrences(of: "'", with: "'\\''")
+        let cmd = "cd '\(dir)'; unset ANTHROPIC_API_KEY ANTHROPIC_AUTH_TOKEN; " +
                   "export ANTHROPIC_BASE_URL=\(shimURL); " +
                   "export CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1; claude"
+        // Escape backslashes and quotes for the AppleScript string literal.
+        let asSafe = cmd.replacingOccurrences(of: "\\", with: "\\\\")
+                        .replacingOccurrences(of: "\"", with: "\\\"")
         let script = """
         tell application "Terminal"
             activate
-            do script "\(cmd)"
+            do script "\(asSafe)"
         end tell
         """
         var err: NSDictionary?
@@ -175,15 +192,7 @@ final class ShimController: ObservableObject {
     // local across projects. Extensions are shared from the default location; the
     // shim ignores auth, so a dummy token stands in for the login.
     func openVSCode() {
-        let panel = NSOpenPanel()
-        panel.canChooseDirectories = true
-        panel.canChooseFiles = false
-        panel.allowsMultipleSelection = false
-        panel.prompt = "Open in FauxClaude"
-        panel.message = "Choose a project folder to open in VS Code pointed at your local shim."
-        panel.directoryURL = FileManager.default.homeDirectoryForCurrentUser
-        NSApp.activate(ignoringOtherApps: true)
-        guard panel.runModal() == .OK, let folder = panel.url else { return }
+        guard let folder = pickFolder("Choose a project folder to open in VS Code pointed at your local shim.") else { return }
 
         installStatusExtension()  // keep the status-bar llama present & up to date
 
@@ -403,7 +412,7 @@ struct MenuContent: View {
         Divider()
         Button("Open Dashboard") { shim.openDashboard() }
             .keyboardShortcut("d")
-        Button("Run Claude Code in Terminal") { shim.runClaude() }
+        Button("Run Claude Code in Terminal…") { shim.runClaude() }
             .keyboardShortcut("t")
         Button("Open Project in VS Code…") { shim.openVSCode() }
             .keyboardShortcut("v")
