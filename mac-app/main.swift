@@ -41,6 +41,10 @@ final class ShimController: ObservableObject {
         FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent("Library/Logs/fauxclaude.log")
     }
+    var vscodeWorkspaceURL: URL {
+        FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("fauxclaude-test")
+    }
     var modelMapURL: URL {
         FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent(".fauxclaude-model-map.json")
@@ -158,6 +162,41 @@ final class ShimController: ObservableObject {
         if err != nil {
             alert("Couldn't open Terminal",
                   "Grant automation permission in System Settings → Privacy & Security → Automation, or run manually:\n\n\(cmd)")
+        }
+    }
+
+    // Open VS Code pointed at the shim. Claude Code (CLI or the VS Code extension)
+    // reads ANTHROPIC_BASE_URL from its PROCESS environment — settings.json can't
+    // redirect it — so we must launch VS Code with the env set. A dedicated
+    // --user-data-dir makes this a separate instance that reliably inherits the
+    // env even if VS Code is already open (extensions are shared from the default
+    // location). The shim ignores auth, so a dummy token stands in for the login.
+    func openVSCode() {
+        let ws = vscodeWorkspaceURL
+        try? FileManager.default.createDirectory(at: ws, withIntermediateDirectories: true)
+        let readme = ws.appendingPathComponent("README.md")
+        if !FileManager.default.fileExists(atPath: readme.path) {
+            try? "# FauxClaude local test workspace\n\nClaude Code here talks to your local FauxClaude shim (\(shimURL)).\n"
+                .write(to: readme, atomically: true, encoding: .utf8)
+        }
+        let vscode = "/Applications/Visual Studio Code.app/Contents/MacOS/Electron"
+        guard FileManager.default.isExecutableFile(atPath: vscode) else {
+            alert("VS Code not found",
+                  "Install VS Code in /Applications, then reopen. Or open \(ws.path) manually with ANTHROPIC_BASE_URL=\(shimURL) set.")
+            return
+        }
+        let p = Process()
+        p.executableURL = URL(fileURLWithPath: vscode)
+        p.arguments = [ws.path, "--new-window",
+                       "--user-data-dir", ws.appendingPathComponent(".vscode-profile").path]
+        var env = ProcessInfo.processInfo.environment
+        env.removeValue(forKey: "ANTHROPIC_API_KEY")
+        env["ANTHROPIC_BASE_URL"] = shimURL
+        env["ANTHROPIC_AUTH_TOKEN"] = "local"          // shim ignores auth; satisfies the client
+        env["CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC"] = "1"
+        p.environment = env
+        do { try p.run() } catch {
+            alert("Couldn't open VS Code", error.localizedDescription)
         }
     }
 
@@ -320,6 +359,8 @@ struct MenuContent: View {
             .keyboardShortcut("d")
         Button("Run Claude Code in Terminal") { shim.runClaude() }
             .keyboardShortcut("t")
+        Button("Open in VS Code") { shim.openVSCode() }
+            .keyboardShortcut("v")
         Button("View Log") { shim.openLog() }
         Button("Edit Model Map…") { shim.editModelMap() }
         Divider()
