@@ -195,6 +195,7 @@ final class ShimController: ObservableObject {
         }
         let profile = vscodeProfileURL
         try? FileManager.default.createDirectory(at: profile, withIntermediateDirectories: true)
+        seedVSCodeProfile(profile)  // make the local instance visually distinct
         let p = Process()
         p.executableURL = URL(fileURLWithPath: vscode)
         p.arguments = [folder.path, "--user-data-dir", profile.path]
@@ -207,6 +208,28 @@ final class ShimController: ObservableObject {
         do { try p.run() } catch {
             alert("Couldn't open VS Code", error.localizedDescription)
         }
+    }
+
+    // Give the isolated FauxClaude instance a distinct look — a purple status bar
+    // and a "🦙 FauxClaude" window title — so it's obvious which instance routes to
+    // the shim. Routing is per INSTANCE (every window in it uses the shim's env),
+    // so this warns you not to open unrelated projects here. Seeded once.
+    private func seedVSCodeProfile(_ profile: URL) {
+        let userDir = profile.appendingPathComponent("User")
+        let settings = userDir.appendingPathComponent("settings.json")
+        guard !FileManager.default.fileExists(atPath: settings.path) else { return }
+        try? FileManager.default.createDirectory(at: userDir, withIntermediateDirectories: true)
+        let json = """
+        {
+          "window.title": "🦙 FauxClaude · ${rootName}${separator}${activeEditorShort}",
+          "workbench.colorCustomizations": {
+            "statusBar.background": "#6b3fa0",
+            "statusBar.foreground": "#ffffff",
+            "statusBar.noFolderBackground": "#6b3fa0"
+          }
+        }
+        """
+        try? json.write(to: settings, atomically: true, encoding: .utf8)
     }
 
     // Copy the bundled FauxClaude Status extension into VS Code's shared extensions

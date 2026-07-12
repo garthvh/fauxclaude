@@ -313,6 +313,7 @@ internal sealed class TrayApp : ApplicationContext
         // stays pointed local and isn't a blank session each time.
         var profile = Path.Combine(lad, "fauxclaude", "vscode-profile");
         Directory.CreateDirectory(profile);
+        SeedVSCodeProfile(profile);  // make the local instance visually distinct
 
         // UseShellExecute must be false so the Environment dictionary is applied.
         var psi = new ProcessStartInfo(code)
@@ -326,6 +327,31 @@ internal sealed class TrayApp : ApplicationContext
         psi.Environment["CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC"] = "1";
         try { Process.Start(psi); }
         catch (Exception ex) { MessageBox.Show($"Couldn't open VS Code:\n{ex.Message}", "FauxClaude"); }
+    }
+
+    // Give the isolated FauxClaude instance a distinct look — a purple status bar
+    // and a "🦙 FauxClaude" window title — so it's obvious which instance routes to
+    // the shim. Routing is per INSTANCE (every window in it uses the shim's env),
+    // so this warns you not to open unrelated projects here. Seeded once.
+    private static void SeedVSCodeProfile(string profile)
+    {
+        var userDir = Path.Combine(profile, "User");
+        var settings = Path.Combine(userDir, "settings.json");
+        if (File.Exists(settings)) return;
+        try
+        {
+            Directory.CreateDirectory(userDir);
+            File.WriteAllText(settings,
+                "{\r\n" +
+                "  \"window.title\": \"\\uD83E\\uDD99 FauxClaude \\u00B7 ${rootName}${separator}${activeEditorShort}\",\r\n" +
+                "  \"workbench.colorCustomizations\": {\r\n" +
+                "    \"statusBar.background\": \"#6b3fa0\",\r\n" +
+                "    \"statusBar.foreground\": \"#ffffff\",\r\n" +
+                "    \"statusBar.noFolderBackground\": \"#6b3fa0\"\r\n" +
+                "  }\r\n" +
+                "}\r\n");
+        }
+        catch { /* best effort */ }
     }
 
     // Copy the bundled FauxClaude Status extension into VS Code's shared extensions
