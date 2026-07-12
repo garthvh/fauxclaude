@@ -90,7 +90,7 @@ internal sealed class TrayApp : ApplicationContext
 
         menu.Items.Add("Open Dashboard", null, (_, _) => OpenUrl($"{ShimUrl}/"));
         menu.Items.Add("Run Claude Code in Terminal", null, (_, _) => RunClaude());
-        menu.Items.Add("Open in VS Code", null, (_, _) => OpenVSCode());
+        menu.Items.Add("Open Project in VS Code…", null, (_, _) => OpenVSCode());
         menu.Items.Add("View Log", null, (_, _) => OpenLog());
         menu.Items.Add("Edit Model Map…", null, (_, _) => EditModelMap());
         menu.Items.Add(new ToolStripSeparator());
@@ -267,22 +267,27 @@ internal sealed class TrayApp : ApplicationContext
         }
     }
 
-    // Open VS Code pointed at the shim. Claude Code (CLI or the VS Code extension)
-    // reads ANTHROPIC_BASE_URL from its PROCESS environment — settings.json can't
-    // redirect it — so we launch VS Code with the env set. A dedicated
-    // --user-data-dir makes it a separate instance that reliably inherits the env
-    // even if VS Code is already open (extensions are shared from the default
-    // location). The shim ignores auth, so a dummy token stands in for the login.
+    // Open a chosen PROJECT in VS Code pointed at the shim. Claude Code (CLI or the
+    // VS Code extension) reads ANTHROPIC_BASE_URL from its PROCESS environment —
+    // settings.json can't redirect it — so we launch VS Code with the env set. A
+    // reused --user-data-dir keeps this an isolated instance that inherits the env
+    // even if your normal VS Code is open and stays pointed local across projects.
+    // Extensions are shared; the shim ignores auth, so a dummy token stands in.
     private void OpenVSCode()
     {
         if (_shim is not { HasExited: false } && !_running) StartShim();
 
-        var ws = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "fauxclaude-test");
-        Directory.CreateDirectory(ws);
-        var readme = Path.Combine(ws, "README.md");
-        if (!File.Exists(readme))
-            try { File.WriteAllText(readme, $"# FauxClaude local test workspace\r\n\r\nClaude Code here talks to your local FauxClaude shim ({ShimUrl}).\r\n"); }
-            catch { /* best effort */ }
+        // Pick a project folder.
+        string folder;
+        using (var dlg = new FolderBrowserDialog
+        {
+            Description = "Choose a project folder to open in VS Code pointed at your local shim.",
+            UseDescriptionForTitle = true,
+        })
+        {
+            if (dlg.ShowDialog() != DialogResult.OK || string.IsNullOrEmpty(dlg.SelectedPath)) return;
+            folder = dlg.SelectedPath;
+        }
 
         // Find Code.exe (user install first, then machine-wide).
         var lad = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
@@ -297,17 +302,21 @@ internal sealed class TrayApp : ApplicationContext
 
         if (code == null)
         {
-            MessageBox.Show($"VS Code (Code.exe) not found. Install it, or open this folder manually with " +
-                            $"ANTHROPIC_BASE_URL={ShimUrl} set:\n\n{ws}", "FauxClaude");
+            MessageBox.Show($"VS Code (Code.exe) not found. Install it, or open {folder} manually with " +
+                            $"ANTHROPIC_BASE_URL={ShimUrl} set.", "FauxClaude");
             return;
         }
 
-        var profile = Path.Combine(ws, ".vscode-profile");
+        // Reused profile (outside any project) so it's an isolated instance that
+        // stays pointed local and isn't a blank session each time.
+        var profile = Path.Combine(lad, "fauxclaude", "vscode-profile");
+        Directory.CreateDirectory(profile);
+
         // UseShellExecute must be false so the Environment dictionary is applied.
         var psi = new ProcessStartInfo(code)
         {
             UseShellExecute = false,
-            Arguments = $"\"{ws}\" --new-window --user-data-dir \"{profile}\"",
+            Arguments = $"\"{folder}\" --user-data-dir \"{profile}\"",
         };
         psi.Environment.Remove("ANTHROPIC_API_KEY");
         psi.Environment["ANTHROPIC_BASE_URL"] = ShimUrl;

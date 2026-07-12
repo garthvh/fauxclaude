@@ -41,9 +41,11 @@ final class ShimController: ObservableObject {
         FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent("Library/Logs/fauxclaude.log")
     }
-    var vscodeWorkspaceURL: URL {
+    // Reused VS Code profile for the local instance — stable so it isn't a blank
+    // session each time (remembers recents/layout); kept out of any project folder.
+    var vscodeProfileURL: URL {
         FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent("fauxclaude-test")
+            .appendingPathComponent("Library/Application Support/FauxClaude/vscode-profile")
     }
     var modelMapURL: URL {
         FileManager.default.homeDirectoryForCurrentUser
@@ -165,30 +167,35 @@ final class ShimController: ObservableObject {
         }
     }
 
-    // Open VS Code pointed at the shim. Claude Code (CLI or the VS Code extension)
-    // reads ANTHROPIC_BASE_URL from its PROCESS environment — settings.json can't
-    // redirect it — so we must launch VS Code with the env set. A dedicated
-    // --user-data-dir makes this a separate instance that reliably inherits the
-    // env even if VS Code is already open (extensions are shared from the default
-    // location). The shim ignores auth, so a dummy token stands in for the login.
+    // Open a chosen PROJECT in VS Code pointed at the shim. Claude Code (CLI or the
+    // VS Code extension) reads ANTHROPIC_BASE_URL from its PROCESS environment —
+    // settings.json can't redirect it — so we launch VS Code with the env set. A
+    // dedicated (reused) --user-data-dir keeps this a separate, isolated instance
+    // that inherits the env even if your normal VS Code is open, and stays pointed
+    // local across projects. Extensions are shared from the default location; the
+    // shim ignores auth, so a dummy token stands in for the login.
     func openVSCode() {
-        let ws = vscodeWorkspaceURL
-        try? FileManager.default.createDirectory(at: ws, withIntermediateDirectories: true)
-        let readme = ws.appendingPathComponent("README.md")
-        if !FileManager.default.fileExists(atPath: readme.path) {
-            try? "# FauxClaude local test workspace\n\nClaude Code here talks to your local FauxClaude shim (\(shimURL)).\n"
-                .write(to: readme, atomically: true, encoding: .utf8)
-        }
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.allowsMultipleSelection = false
+        panel.prompt = "Open in FauxClaude"
+        panel.message = "Choose a project folder to open in VS Code pointed at your local shim."
+        panel.directoryURL = FileManager.default.homeDirectoryForCurrentUser
+        NSApp.activate(ignoringOtherApps: true)
+        guard panel.runModal() == .OK, let folder = panel.url else { return }
+
         let vscode = "/Applications/Visual Studio Code.app/Contents/MacOS/Electron"
         guard FileManager.default.isExecutableFile(atPath: vscode) else {
             alert("VS Code not found",
-                  "Install VS Code in /Applications, then reopen. Or open \(ws.path) manually with ANTHROPIC_BASE_URL=\(shimURL) set.")
+                  "Install VS Code in /Applications. Or open \(folder.path) manually with ANTHROPIC_BASE_URL=\(shimURL) set.")
             return
         }
+        let profile = vscodeProfileURL
+        try? FileManager.default.createDirectory(at: profile, withIntermediateDirectories: true)
         let p = Process()
         p.executableURL = URL(fileURLWithPath: vscode)
-        p.arguments = [ws.path, "--new-window",
-                       "--user-data-dir", ws.appendingPathComponent(".vscode-profile").path]
+        p.arguments = [folder.path, "--user-data-dir", profile.path]
         var env = ProcessInfo.processInfo.environment
         env.removeValue(forKey: "ANTHROPIC_API_KEY")
         env["ANTHROPIC_BASE_URL"] = shimURL
@@ -359,7 +366,7 @@ struct MenuContent: View {
             .keyboardShortcut("d")
         Button("Run Claude Code in Terminal") { shim.runClaude() }
             .keyboardShortcut("t")
-        Button("Open in VS Code") { shim.openVSCode() }
+        Button("Open Project in VS Code…") { shim.openVSCode() }
             .keyboardShortcut("v")
         Button("View Log") { shim.openLog() }
         Button("Edit Model Map…") { shim.editModelMap() }
