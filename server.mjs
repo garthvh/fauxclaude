@@ -38,13 +38,15 @@ const MOCK = process.env.MOCK === "1";
 const MOCK_DELAY_MS = Number(process.env.MOCK_DELAY_MS || 15);
 const MOCK_TOKENS = Number(process.env.MOCK_TOKENS || 60);
 const LOG = process.env.LOG === "1";
-// Slot size, capped by the model's trained context (qwen2.5-coder = 32768; larger
-// values are clamped). The bigger lever for interactive latency is keeping
-// OLLAMA_NUM_PARALLEL=1: extra parallel slots make consecutive turns round-robin
-// onto empty slots, forcing a full re-prefill of the whole ~20-30k-token Claude
-// Code prompt (~100s on a 14b). One slot means every turn reuses the previous
-// prefix and only prefills the new tokens. Raise parallel only for load tests.
-const NUM_CTX = Number(process.env.NUM_CTX || 32768);
+// Slot size, capped by the model's trained context. 128k gives Claude Code room:
+// its conversations grow past 32k, and if the prompt fills the whole window there
+// are ~no tokens left to generate — the reply truncates and Claude Code loops on
+// "Output token limit hit". qwen3-vl supports 256k, so 131072 leaves headroom
+// (raise to 262144 if a long session still hits the ceiling). Note this grows the
+// KV cache; fine on 96GB. Ollama clamps to the model's trained max.
+// (Separately, keep OLLAMA_NUM_PARALLEL=1 for interactive use so turns reuse the
+// cached prefix instead of round-robining onto empty slots and re-prefilling.)
+const NUM_CTX = Number(process.env.NUM_CTX || 131072);
 // Prompt-eval (prefill) batch size. Claude Code prompts are big (~20-30k tokens),
 // and prefill is the dominant local-latency cost; a larger batch speeds it up.
 // Ollama otherwise picks a conservative 1024 for larger models. Reloads the model
