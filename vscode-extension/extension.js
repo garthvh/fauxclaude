@@ -13,7 +13,13 @@ const DEFAULT_SHIM = "http://127.0.0.1:11435";
 function activate(context) {
   const baseUrl = (process.env.ANTHROPIC_BASE_URL || "").replace(/\/+$/, "");
   const routed = /(^|\/\/)(127\.0\.0\.1|localhost):11435/.test(baseUrl);
-  const shimUrl = routed && baseUrl ? baseUrl : DEFAULT_SHIM;
+  // Only act in a window actually routed to FauxClaude (the app's "Open Project in
+  // VS Code" sets ANTHROPIC_BASE_URL in the process). In every other window — your
+  // normal projects like Meshtastic-Apple — do nothing at all: no status item, no
+  // polling. The extension lives in the shared extensions dir so it loads
+  // everywhere; this keeps it invisible outside FauxClaude windows.
+  if (!routed) return;
+  const shimUrl = baseUrl || DEFAULT_SHIM;
 
   const item = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
   item.command = "fauxclaude.openDashboard";
@@ -26,24 +32,12 @@ function activate(context) {
   );
 
   function render(up, mode, model) {
-    const warnFg = new vscode.ThemeColor("statusBarItem.warningForeground");
-    const warnBg = new vscode.ThemeColor("statusBarItem.warningBackground");
-    if (routed) {
-      item.text = up ? "🦙 FauxClaude" : "🦙 FauxClaude — offline";
-      item.tooltip = up
-        ? `This window is running on FauxClaude (${mode || "local"}${model ? " · " + model : ""}) at ${shimUrl}.\nClick to open the dashboard.`
-        : `This window is set to use FauxClaude, but the shim isn't responding at ${shimUrl}.\nStart it from the FauxClaude menu-bar app.`;
-      item.color = up ? undefined : warnFg;
-      item.backgroundColor = up ? undefined : warnBg;
-    } else {
-      // Normal window (real Claude). Don't clutter unrelated windows: only show a
-      // dim, informative llama when the shim is actually running elsewhere.
-      if (!up) { item.hide(); return; }
-      item.text = "$(circle-slash) 🦙";
-      item.tooltip = `FauxClaude is running at ${shimUrl}, but THIS window is NOT routed to it (using the real API).\nUse the FauxClaude app's "Open Project in VS Code" to get a local window.`;
-      item.color = new vscode.ThemeColor("disabledForeground");
-      item.backgroundColor = undefined;
-    }
+    item.text = up ? "🦙 FauxClaude" : "🦙 FauxClaude — offline";
+    item.tooltip = up
+      ? `This window is running on FauxClaude (${mode || "local"}${model ? " · " + model : ""}) at ${shimUrl}.\nClick to open the dashboard.`
+      : `This window is set to use FauxClaude, but the shim isn't responding at ${shimUrl}.\nStart it from the FauxClaude menu-bar app.`;
+    item.color = up ? undefined : new vscode.ThemeColor("statusBarItem.warningForeground");
+    item.backgroundColor = up ? undefined : new vscode.ThemeColor("statusBarItem.warningBackground");
     item.show();
   }
 
