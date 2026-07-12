@@ -102,7 +102,7 @@ final class ShimController: ObservableObject {
         // built-in fast-Haiku default when the file is absent. Opus/Sonnet default
         // to the larger quality model; both fall back if a model isn't installed.
         if env["MODEL_MAP"] == nil { env["MODEL_MAP_FILE"] = modelMapURL.path }
-        if env["OLLAMA_MODEL"] == nil { env["OLLAMA_MODEL"] = "qwen2.5-coder:14b" }
+        if env["OLLAMA_MODEL"] == nil { env["OLLAMA_MODEL"] = "qwen3-vl:30b-a3b-instruct" }
         p.environment = env
         p.standardOutput = log
         p.standardError = log
@@ -171,8 +171,7 @@ final class ShimController: ObservableObject {
         if !FileManager.default.fileExists(atPath: modelMapURL.path) {
             let template = """
             {
-              "claude-haiku-4-5": "qwen2.5-coder:7b",
-              "claude-opus-4-8": "qwen2.5-coder:14b"
+              "claude-haiku-4-5": "qwen3-vl:30b-a3b-instruct"
             }
             """
             try? template.write(to: modelMapURL, atomically: true, encoding: .utf8)

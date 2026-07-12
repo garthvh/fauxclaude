@@ -14,12 +14,11 @@ DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 if ! curl -sf --max-time 1 "${SHIM_URL}/health" > /dev/null 2>&1; then
   echo "[claude-local] starting FauxClaude on :${SHIM_PORT}..."
-  # Route the Haiku tier (Claude Code's background calls) to a small fast model for
-  # ~2x speed; Opus/Sonnet keep the larger quality model. Both are ignored by the
-  # shim if not installed. Override MODEL_MAP / OLLAMA_MODEL to change routing.
+  # Every Claude tier routes to one local model (qwen3-vl: MoE, so fast, and it
+  # also does vision + tool calls). Override OLLAMA_MODEL to change it, or set a
+  # MODEL_MAP to split tiers across models if you keep more than one installed.
   PORT="$SHIM_PORT" \
-    MODEL_MAP="${MODEL_MAP:-{\"claude-haiku-4-5\":\"qwen2.5-coder:7b\"}}" \
-    OLLAMA_MODEL="${OLLAMA_MODEL:-qwen2.5-coder:14b}" \
+    OLLAMA_MODEL="${OLLAMA_MODEL:-qwen3-vl:30b-a3b-instruct}" \
     nohup node "$DIR/server.mjs" >> "$DIR/shim.log" 2>&1 &
   for _ in $(seq 1 20); do
     curl -sf --max-time 1 "${SHIM_URL}/health" > /dev/null 2>&1 && break
