@@ -52,6 +52,14 @@ const NUM_CTX = Number(process.env.NUM_CTX || 131072);
 // Ollama otherwise picks a conservative 1024 for larger models. Reloads the model
 // once when it changes, like num_ctx.
 const NUM_BATCH = Number(process.env.NUM_BATCH || 2048);
+// Hard ceiling on generated tokens. Claude Code requests a large max_tokens and
+// errors if a response exceeds its CLAUDE_CODE_MAX_OUTPUT_TOKENS guard (32000). A
+// local model occasionally runs away (repetition loop) and, with a big num_ctx,
+// can generate to that ceiling — tripping the client error and wasting minutes of
+// generation. Capping num_predict well under the guard turns a runaway into a
+// harmless truncated reply. 16k is far above any normal coding response; raise
+// NUM_PREDICT_MAX for genuinely huge single outputs.
+const NUM_PREDICT_MAX = Number(process.env.NUM_PREDICT_MAX || 16384);
 // How long Ollama keeps the model loaded. Default -1 = forever, so you never pay a
 // cold reload after an idle gap (the model load is the worst local-model latency).
 // Override with a duration ("30m") or seconds ("0" unloads immediately). Numeric
@@ -479,7 +487,7 @@ async function handleOllama(res, body, claudeModel, msgId, inputTokens, rec, ac)
     keep_alive: KEEP_ALIVE,
     options: { num_ctx: NUM_CTX, num_batch: NUM_BATCH },
   };
-  if (body.max_tokens) ollamaReq.options.num_predict = body.max_tokens;
+  ollamaReq.options.num_predict = Math.min(body.max_tokens || NUM_PREDICT_MAX, NUM_PREDICT_MAX);
   if (body.temperature != null) ollamaReq.options.temperature = body.temperature;
   if (body.top_p != null) ollamaReq.options.top_p = body.top_p;
   if (body.stop_sequences?.length) ollamaReq.options.stop = body.stop_sequences;
