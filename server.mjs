@@ -323,12 +323,13 @@ function blockText(content) {
 // them so the column shows what was typed, not the boilerplate. Falls back to the
 // raw text for turns that are only injected content (e.g. tool-result turns).
 function humanText(content) {
-  const raw = blockText(content ?? "");
-  const stripped = raw
-    .replace(/<system-reminder>[\s\S]*?<\/system-reminder>/gi, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-  return stripped || raw.replace(/\s+/g, " ").trim();
+  const raw = blockText(content ?? "").replace(/<system-reminder>[\s\S]*?<\/system-reminder>/gi, " ");
+  // After an interrupt, Claude Code folds the aborted turn(s) plus a
+  // "[Request interrupted by user]" marker into the same user message; the actual
+  // new message is whatever the user typed after the last such marker.
+  const segments = raw.split(/\[Request interrupted by user[^\]]*\]/gi);
+  const tail = segments[segments.length - 1].replace(/\s+/g, " ").trim();
+  return tail || raw.replace(/\s+/g, " ").trim();
 }
 
 function anthropicToOllamaMessages(body) {
