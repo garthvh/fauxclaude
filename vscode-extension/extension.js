@@ -32,7 +32,7 @@ function activate(context) {
   );
 
   function render(up, mode, model) {
-    item.text = up ? "🦙 FauxClaude" : "🦙 FauxClaude — offline";
+    item.text = up ? "$(fauxclaude-llama) FauxClaude" : "$(fauxclaude-llama) FauxClaude — offline";
     item.tooltip = up
       ? `This window is running on FauxClaude (${mode || "local"}${model ? " · " + model : ""}) at ${shimUrl}.\nClick to open the dashboard.`
       : `This window is set to use FauxClaude, but the shim isn't responding at ${shimUrl}.\nStart it from the FauxClaude menu-bar app.`;
