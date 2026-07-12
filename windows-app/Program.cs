@@ -76,6 +76,7 @@ internal sealed class TrayApp : ApplicationContext
 
         menu.Items.Add("Open Dashboard", null, (_, _) => OpenUrl($"{ShimUrl}/"));
         menu.Items.Add("Run Claude Code in Terminal", null, (_, _) => RunClaude());
+        menu.Items.Add("Open in VS Code", null, (_, _) => OpenVSCode());
         menu.Items.Add("View Log", null, (_, _) => OpenLog());
         menu.Items.Add("Edit Model Map…", null, (_, _) => EditModelMap());
         menu.Items.Add(new ToolStripSeparator());
@@ -250,6 +251,56 @@ internal sealed class TrayApp : ApplicationContext
         {
             Process.Start(new ProcessStartInfo("cmd.exe", $"/k \"{cmd}\"") { UseShellExecute = true });
         }
+    }
+
+    // Open VS Code pointed at the shim. Claude Code (CLI or the VS Code extension)
+    // reads ANTHROPIC_BASE_URL from its PROCESS environment — settings.json can't
+    // redirect it — so we launch VS Code with the env set. A dedicated
+    // --user-data-dir makes it a separate instance that reliably inherits the env
+    // even if VS Code is already open (extensions are shared from the default
+    // location). The shim ignores auth, so a dummy token stands in for the login.
+    private void OpenVSCode()
+    {
+        if (_shim is not { HasExited: false } && !_running) StartShim();
+
+        var ws = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "fauxclaude-test");
+        Directory.CreateDirectory(ws);
+        var readme = Path.Combine(ws, "README.md");
+        if (!File.Exists(readme))
+            try { File.WriteAllText(readme, $"# FauxClaude local test workspace\r\n\r\nClaude Code here talks to your local FauxClaude shim ({ShimUrl}).\r\n"); }
+            catch { /* best effort */ }
+
+        // Find Code.exe (user install first, then machine-wide).
+        var lad = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        string? code = null;
+        foreach (var c in new[]
+        {
+            Path.Combine(lad, "Programs", "Microsoft VS Code", "Code.exe"),
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "Microsoft VS Code", "Code.exe"),
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), "Microsoft VS Code", "Code.exe"),
+        })
+            if (File.Exists(c)) { code = c; break; }
+
+        if (code == null)
+        {
+            MessageBox.Show($"VS Code (Code.exe) not found. Install it, or open this folder manually with " +
+                            $"ANTHROPIC_BASE_URL={ShimUrl} set:\n\n{ws}", "FauxClaude");
+            return;
+        }
+
+        var profile = Path.Combine(ws, ".vscode-profile");
+        // UseShellExecute must be false so the Environment dictionary is applied.
+        var psi = new ProcessStartInfo(code)
+        {
+            UseShellExecute = false,
+            Arguments = $"\"{ws}\" --new-window --user-data-dir \"{profile}\"",
+        };
+        psi.Environment.Remove("ANTHROPIC_API_KEY");
+        psi.Environment["ANTHROPIC_BASE_URL"] = ShimUrl;
+        psi.Environment["ANTHROPIC_AUTH_TOKEN"] = "local"; // shim ignores auth; satisfies the client
+        psi.Environment["CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC"] = "1";
+        try { Process.Start(psi); }
+        catch (Exception ex) { MessageBox.Show($"Couldn't open VS Code:\n{ex.Message}", "FauxClaude"); }
     }
 
     private void ExitApp()
