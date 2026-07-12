@@ -255,7 +255,7 @@ function countSaved(rec) {
 
 // The live feed carries metadata + preview only; full bodies are fetched on
 // demand via GET /requests/:id.
-const publicRec = ({ _start, _lastPush, _cacheFraction, _cacheHit, userMessage, responseText, ...pub }) => pub;
+const publicRec = ({ _start, _lastPush, _cacheFraction, _cacheHit, _done, userMessage, responseText, ...pub }) => pub;
 
 // Chars kept per stored message/response for the detail view. Bounded because we
 // now retain up to MAX_ACTIVITY (~2000) records — 2000 × 200KB × 2 would be ~800MB.
@@ -295,8 +295,10 @@ function tick(rec) {
 }
 
 function finish(rec, fields) {
+  if (rec._done) return;  // first terminal state wins (e.g. a client-cancel beats a late "done")
+  rec._done = true;
   Object.assign(rec, fields, { durationMs: Date.now() - rec._start });
-  if (rec.status === "done") countSaved(rec); // errors wouldn't have billed on the real API
+  if (rec.status === "done") countSaved(rec); // errors/cancels wouldn't have billed on the real API
   broadcast(rec);
 }
 
@@ -437,10 +439,23 @@ async function handleMessages(req, res, body) {
   const inputTokens = estimateTokens({ system: body.system, messages: body.messages, tools: body.tools });
   const rec = track(body, inputTokens);
 
+  // Propagate a client disconnect (Claude Code's Esc/interrupt) upstream: abort the
+  // Ollama request so it stops generating and releases the slot — otherwise the
+  // abandoned request keeps the (single, with np=1) slot busy and the record is
+  // stranded "active" forever. Fires only on an *early* close, not normal end.
+  const ac = new AbortController();
+  res.on("close", () => {
+    if (!res.writableEnded && !rec._done) {
+      finish(rec, { status: "canceled", error: "client disconnected before completion" });
+      ac.abort();
+    }
+  });
+
   try {
-    if (MOCK) return await handleMock(res, body, claudeModel, msgId, inputTokens, rec);
-    return await handleOllama(res, body, claudeModel, msgId, inputTokens, rec);
+    if (MOCK) return await handleMock(res, body, claudeModel, msgId, inputTokens, rec, ac);
+    return await handleOllama(res, body, claudeModel, msgId, inputTokens, rec, ac);
   } catch (err) {
+    if (ac.signal.aborted) return;  // already finalized as canceled above
     const msg = err?.cause?.code === "ECONNREFUSED" || err?.message === "fetch failed"
       ? `Cannot reach Ollama at ${OLLAMA_URL} — is \`ollama serve\` running?`
       : String(err?.message || err);
@@ -449,7 +464,7 @@ async function handleMessages(req, res, body) {
   }
 }
 
-async function handleOllama(res, body, claudeModel, msgId, inputTokens, rec) {
+async function handleOllama(res, body, claudeModel, msgId, inputTokens, rec, ac) {
   const ollamaModel = await resolveOllamaModel(claudeModel);
   rec.ollamaModel = ollamaModel;
   lastOllamaModel = ollamaModel;
@@ -480,6 +495,7 @@ async function handleOllama(res, body, claudeModel, msgId, inputTokens, rec) {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(ollamaReq),
+    signal: ac?.signal,  // client disconnect aborts the Ollama call and frees the slot
   });
 
   if (!upstream.ok) {
@@ -606,8 +622,11 @@ async function handleOllama(res, body, claudeModel, msgId, inputTokens, rec) {
       }
     }
   } catch (err) {
-    log("stream error:", err.message);
+    if (!ac?.signal.aborted) log("stream error:", err.message);
   }
+  // Canceled mid-stream: the socket is gone and the record is already finalized,
+  // so don't write more SSE (would EPIPE) — just stop here.
+  if (ac?.signal.aborted || res.writableEnded) return;
   closeBlock();
   const stopReason = mapStopReason(doneReason, sawToolCall);
   finish(rec, {
@@ -629,7 +648,7 @@ const MOCK_WORDS = ("the quick brown fox jumps over the lazy dog while testing "
   "streaming responses from a mock model that costs zero tokens and returns " +
   "deterministic filler text for load and integration testing purposes").split(" ");
 
-async function handleMock(res, body, claudeModel, msgId, inputTokens, rec) {
+async function handleMock(res, body, claudeModel, msgId, inputTokens, rec, ac) {
   rec.ollamaModel = "mock";
   const lastUser = [...(body.messages || [])].reverse().find((m) => m.role === "user");
   const preview = humanText(lastUser?.content).slice(0, 80);
@@ -657,6 +676,7 @@ async function handleMock(res, body, claudeModel, msgId, inputTokens, rec) {
   sse.send("message_start", messageStartPayload(msgId, claudeModel, inputTokens));
   sse.send("content_block_start", { type: "content_block_start", index: 0, content_block: { type: "text", text: "" } });
   for (const w of words) {
+    if (ac?.signal.aborted || res.writableEnded) return;  // client canceled mid-stream
     rec.outputTokens++;
     appendResponse(rec, w);
     tick(rec);

@@ -79,6 +79,8 @@
   .status.active .dot { background: var(--series-1); animation: pulse 1.2s ease-in-out infinite; }
   .status.done .dot { background: var(--good); }
   .status.error .dot { background: var(--critical); }
+  .status.canceled .dot { background: var(--ink-muted); }
+  .status.canceled .word { color: var(--ink-muted); }
   .status .word { color: var(--ink-2); font-size: 12px; }
   @keyframes pulse { 50% { opacity: 0.35; } }
   .empty { padding: 28px; text-align: center; color: var(--ink-muted); }
@@ -245,7 +247,10 @@ function upsert(rec) {
 }
 
 function statusCell(rec) {
-  const cls = rec.status === "error" ? "error" : rec.status === "done" ? "done" : "active";
+  const cls = rec.status === "error" ? "error"
+    : rec.status === "done" ? "done"
+    : rec.status === "canceled" ? "canceled"
+    : "active";
   const word = rec.status === "active" ? (rec.stream ? "streaming" : "working") : rec.status;
   return `<span class="status ${cls}"><span class="dot"></span><span class="word">${word}</span></span>`;
 }
