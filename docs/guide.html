@@ -1,0 +1,430 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Docs — FauxClaude</title>
+<meta name="description" content="How to install and run FauxClaude: the Mac and Windows apps, VS Code, model picking, the dashboard, and the full config reference.">
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --charcoal: #1E1E1E;
+    --mime-red: #C1292E;
+    --cream:    #F5F2EB;
+    --gray:     #6B7280;
+    --canvas:   #F8F9FA;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    background: var(--canvas); color: var(--charcoal);
+    font-family: "Inter", system-ui, sans-serif;
+    font-size: 16px; line-height: 1.65;
+  }
+  a { color: inherit; }
+  .wordmark .faux { font-weight: 500; }
+  .wordmark .claude { font-weight: 800; }
+
+  nav {
+    display: flex; align-items: center; gap: 12px;
+    padding: 18px 24px; max-width: 1180px; margin: 0 auto;
+  }
+  nav img { height: 30px; }
+  nav .wordmark { font-size: 19px; }
+  nav .links { margin-left: auto; display: flex; gap: 22px; font-size: 14px; font-weight: 500; }
+  nav .links a { text-decoration: none; color: var(--gray); }
+  nav .links a:hover, nav .links a.here { color: var(--mime-red); }
+
+  .shell {
+    max-width: 1180px; margin: 0 auto; padding: 8px 24px 64px;
+    display: grid; grid-template-columns: 220px minmax(0,1fr); gap: 48px;
+    min-width: 0;
+  }
+  .shell > * { min-width: 0; }
+  .toc {
+    position: sticky; top: 24px; align-self: start;
+    font-size: 14px; max-height: calc(100vh - 48px); overflow-y: auto;
+  }
+  .toc h4 {
+    text-transform: uppercase; letter-spacing: 0.1em; font-size: 11px;
+    color: var(--gray); margin: 18px 0 8px;
+  }
+  .toc h4:first-child { margin-top: 0; }
+  .toc a {
+    display: block; padding: 4px 0; color: var(--gray); text-decoration: none;
+  }
+  .toc a:hover { color: var(--mime-red); }
+
+  main h1 {
+    font-size: clamp(30px, 4.5vw, 40px); font-weight: 800; letter-spacing: -0.03em;
+    margin-bottom: 8px;
+  }
+  main > p.lede { color: var(--gray); font-size: 17px; max-width: 640px; margin-bottom: 40px; }
+
+  section { padding: 34px 0; border-top: 1px solid rgba(107,114,128,0.18); }
+  section:first-of-type { border-top: none; padding-top: 0; }
+  h2 {
+    font-size: 22px; font-weight: 700; letter-spacing: -0.02em; margin-bottom: 6px;
+    scroll-margin-top: 16px;
+  }
+  h2 + p.sub { color: var(--gray); margin-bottom: 20px; font-size: 15px; }
+  h3 { font-size: 16px; font-weight: 700; margin: 22px 0 8px; scroll-margin-top: 16px; }
+  p, li { font-size: 15px; }
+  p + p { margin-top: 12px; }
+  ul, ol { padding-left: 20px; margin: 10px 0; }
+  li { margin-bottom: 6px; }
+  .accent { color: var(--mime-red); }
+  code {
+    background: var(--cream); border-radius: 5px; padding: 1px 6px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.9em;
+  }
+  pre {
+    background: var(--charcoal); color: #f5f2eb; border-radius: 12px;
+    padding: 18px 22px; overflow-x: auto; font-size: 13.5px; line-height: 1.65;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    margin: 14px 0;
+  }
+  pre code { background: none; padding: 0; font-size: 1em; }
+  pre .c { color: #9aa0a6; }
+
+  .callout {
+    background: var(--cream); border-left: 3px solid var(--mime-red);
+    border-radius: 0 10px 10px 0; padding: 14px 18px; font-size: 14px;
+    color: var(--charcoal); margin: 16px 0;
+  }
+  .callout b { color: var(--mime-red); }
+
+  .tscroll { overflow-x: auto; margin: 14px 0; }
+  table { width: 100%; min-width: 480px; border-collapse: collapse; font-size: 14px; margin: 0; }
+  th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid rgba(107,114,128,0.2); vertical-align: top; }
+  th { color: var(--gray); font-weight: 600; font-size: 12.5px; text-transform: uppercase; letter-spacing: 0.05em; }
+
+  .grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px,1fr)); gap: 16px; margin: 14px 0; }
+  .card {
+    background: var(--cream); border-radius: 12px; padding: 18px 20px;
+    border: 1px solid rgba(107,114,128,0.18);
+  }
+  .card h4 { font-size: 14px; font-weight: 700; margin-bottom: 6px; }
+  .card p { color: var(--gray); font-size: 13.5px; margin: 0; }
+
+  .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
+  .dot.done { background: #0ca30c; }
+  .dot.error { background: #d03b3b; }
+  .dot.canceled { background: #fab219; }
+  .dot.active { background: #2a78d6; }
+
+  footer {
+    border-top: 1px solid rgba(107,114,128,0.25);
+    padding: 30px 24px 44px; margin-top: 10px; max-width: 1180px; margin-inline: auto;
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    color: var(--gray); font-size: 14px;
+  }
+  footer .links { margin-left: auto; display: flex; gap: 18px; }
+  footer a { color: var(--gray); text-decoration: none; }
+  footer a:hover { color: var(--mime-red); }
+
+  @media (max-width: 760px) {
+    .shell { grid-template-columns: 1fr; }
+    .toc { position: static; max-height: none; columns: 1; }
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <img src="llama.png" alt="FauxClaude llama">
+  <span class="wordmark"><span class="faux">Faux</span><span class="claude">Claude</span></span>
+  <span class="links">
+    <a href="index.html">Home</a>
+    <a href="guide.html" class="here">Docs</a>
+    <a href="https://github.com/garthvh/fauxclaude">GitHub</a>
+  </span>
+</nav>
+
+<div class="shell">
+  <aside class="toc">
+    <h4>Start</h4>
+    <a href="#what">What it is</a>
+    <a href="#install">Install</a>
+    <a href="#models">Picking a model</a>
+
+    <h4>Using it</h4>
+    <a href="#mac-app">Mac app</a>
+    <a href="#windows-app">Windows app</a>
+    <a href="#vscode">VS Code</a>
+    <a href="#terminal">Terminal / CLI</a>
+    <a href="#dashboard">Dashboard</a>
+
+    <h4>Reference</h4>
+    <a href="#config">Config</a>
+    <a href="#endpoints">Endpoints</a>
+    <a href="#speed">Speed &amp; RAM</a>
+    <a href="#gaps">Known gaps</a>
+  </aside>
+
+  <main>
+    <h1>Docs</h1>
+    <p class="lede">
+      FauxClaude is a small Node server that pretends to be the Anthropic Messages API
+      in front of a local Ollama model — so Claude Code (or anything else that speaks
+      the Claude API) runs against your own hardware for free. That's the whole app.
+      Everything below is optional convenience on top of it.
+    </p>
+
+    <section id="what">
+      <h2>What it is</h2>
+      <p>
+        One file, <code>server.mjs</code>, zero dependencies. It listens on
+        <code>:11435</code>, translates each request into Ollama's
+        <code>/api/chat</code> format, and translates the reply back into Anthropic's
+        wire format (including streaming SSE). Point any Claude client at it with
+        <code>ANTHROPIC_BASE_URL</code> and it can't tell the difference.
+      </p>
+      <div class="callout">
+        <b>Why bother?</b> Free local Claude Code for everyday coding, plus
+        load-testing a Claude-compatible frontend without burning real API tokens.
+      </div>
+    </section>
+
+    <section id="install">
+      <h2>Install</h2>
+      <p class="sub">Three things, in order.</p>
+      <ol>
+        <li>
+          <b>Ollama, as the app</b> — not <code>ollama serve</code> in a terminal.
+          The app installs a background service that survives logout/reboot, so it's
+          always there when FauxClaude needs it.
+          <pre><span class="c"># macOS</span>
+brew install --cask ollama && open -a Ollama
+
+<span class="c"># Windows: install "Ollama for Windows" from ollama.com/download</span></pre>
+        </li>
+        <li>
+          <b>A model</b> — see <a href="#models">picking a model</a> below.
+          <pre>ollama pull qwen3-vl:30b-a3b-instruct</pre>
+        </li>
+        <li>
+          <b>FauxClaude</b> — either the menu bar / tray app (no terminal needed
+          day-to-day), or run the shim directly:
+          <pre>git clone https://github.com/garthvh/fauxclaude && cd fauxclaude
+node server.mjs</pre>
+        </li>
+      </ol>
+    </section>
+
+    <section id="models">
+      <h2>Picking a model</h2>
+      <p class="sub">Claude Code leans hard on tool calling and long context — a small chat model will flail.</p>
+      <div class="grid2">
+        <div class="card">
+          <h4>qwen3-vl:30b-a3b-instruct <span class="accent">— recommended</span></h4>
+          <p>Mixture-of-Experts: ~30B total but only ~3B active per token, so it's fast
+          despite the size. Also does vision (paste a screenshot) and has a 256k
+          context window. ~19&nbsp;GB on disk. Needs a roomy box (64&nbsp;GB+ RAM).</p>
+        </div>
+        <div class="card">
+          <h4>qwen2.5-coder:7b / :14b</h4>
+          <p>Solid dense coding models, no vision. The 7b (~4.7&nbsp;GB) is the safe
+          pick on a 32&nbsp;GB machine; the 14b wants more headroom.</p>
+        </div>
+        <div class="card">
+          <h4>qwen3-coder, devstral</h4>
+          <p>Larger dedicated agentic/tool-calling coders if you have the RAM/VRAM to
+          spare and want maximum coding quality over speed.</p>
+        </div>
+        <div class="card">
+          <h4>3b models, mock mode</h4>
+          <p><code>qwen2.5-coder:3b</code> / <code>llama3.2:3b</code> for a 16&nbsp;GB
+          box, or <code>MOCK=1</code> for zero-inference load testing.</p>
+        </div>
+      </div>
+      <p>Route different Claude tiers to different models with <code>MODEL_MAP</code>,
+      or edit it persistently from either app's <b>Edit Model Map…</b> menu item. A
+      tier pointed at a model you haven't pulled falls back automatically.</p>
+    </section>
+
+    <section id="mac-app">
+      <h2>Mac app</h2>
+      <p class="sub"><code>FauxClaude.app</code> — a native menu bar app that owns the shim process.</p>
+      <p>Drag it to <code>/Applications</code> and launch from Spotlight. It bundles
+      its own copy of the shim, so it's fully self-contained. Needs Node&nbsp;18+
+      (<code>brew install node</code>) and the Ollama app running.</p>
+      <div class="tscroll"><table>
+        <tr><th>Menu item</th><th>What it does</th></tr>
+        <tr><td>Start / Stop FauxClaude</td><td>the shim runs only while the app does</td></tr>
+        <tr><td>Mock Mode</td><td>canned replies, no Ollama needed — restarts the shim</td></tr>
+        <tr><td>Ollama Parallelism</td><td>Interactive (1 slot) ↔ Simulation (4 slots) — persists the setting and restarts Ollama for you</td></tr>
+        <tr><td>Open Dashboard</td><td>the live GUI, in your default browser</td></tr>
+        <tr><td>Run Claude Code in Terminal…</td><td>pick a project folder; opens Terminal there, wired to the shim</td></tr>
+        <tr><td>Open Project in VS Code…</td><td>pick a folder; opens an isolated VS Code instance pointed at the shim — see <a href="#vscode">VS Code</a></td></tr>
+        <tr><td>View Log</td><td><code>~/Library/Logs/fauxclaude.log</code></td></tr>
+        <tr><td>Edit Model Map…</td><td>opens <code>~/.fauxclaude-model-map.json</code> for persistent per-tier routing</td></tr>
+      </table></div>
+      <div class="callout">
+        Rebuild after editing <code>server.mjs</code> / <code>dashboard.html</code> /
+        the Swift source with <code>mac-app/build-app.sh</code> — then
+        <b>install it</b>: <code>ditto FauxClaude.app /Applications/FauxClaude.app</code>.
+        <code>open -a FauxClaude</code> launches the installed copy, so a repo rebuild
+        alone won't take effect.
+      </div>
+    </section>
+
+    <section id="windows-app">
+      <h2>Windows app</h2>
+      <p class="sub"><code>windows-app/</code> — the .NET 8 WinForms system tray twin, kept in feature lock-step with the Mac app.</p>
+      <p>Same menu, same behavior: Mock Mode, Ollama Parallelism, Open Dashboard,
+      Run Claude Code in Terminal…, Open Project in VS Code…, View Log, Edit Model Map….
+      Needs Node&nbsp;18+ and Ollama for Windows.</p>
+      <pre>cd windows-app
+dotnet publish -c Release -r win-x64 --self-contained false
+<span class="c"># exe lands in bin\Release\net8.0-windows\win-x64\publish\</span></pre>
+    </section>
+
+    <section id="vscode">
+      <h2>VS Code</h2>
+      <p class="sub">The Claude Code extension reads its endpoint from the process environment — not from settings.json.</p>
+      <p>
+        Which means the only way to point it at the shim is to launch VS Code with
+        <code>ANTHROPIC_BASE_URL</code> already set. <b>Open Project in VS Code…</b>
+        does that: it starts a dedicated instance (its own profile, shared
+        extensions) on the folder you pick.
+      </p>
+      <p>
+        It also installs a small bundled extension, <b>FauxClaude Status</b> — a 🦙
+        in the status bar that lights up in windows actually routed to the shim
+        (and warns if the shim is offline). The isolated instance gets a purple
+        status bar and a "🦙 FauxClaude" window title, so it's obvious at a glance.
+      </p>
+      <div class="callout">
+        <b>macOS only has one "Visual Studio Code" app.</b> While the FauxClaude
+        instance is running, folders opened via Finder/Dock land <i>inside it</i> and
+        inherit the local routing — even unrelated projects. Keep that window for
+        FauxClaude work only; for normal projects, quit it first and open VS Code
+        the regular way. The dashboard is the source of truth: if a window's
+        activity never shows up there, it isn't routed.
+      </div>
+    </section>
+
+    <section id="terminal">
+      <h2>Terminal / CLI</h2>
+      <p class="sub">The <code>claude-local</code> launchers start the shim if needed and drop you into Claude Code.</p>
+      <pre><span class="c"># macOS / Linux</span>
+./claude-local
+./claude-local -p "explain this repo"
+
+<span class="c"># Windows</span>
+.\claude-local.ps1
+claude-local.cmd -p "explain this repo"</pre>
+      <p>
+        The launcher only sets env vars for its own child process — your normal
+        <code>claude</code> sessions (real API) are untouched. Logged into
+        claude.ai already? Don't set a credential env var at all; your login rides
+        through (the shim ignores auth). Setting one alongside a login just
+        triggers Claude Code's harmless auth-conflict warning.
+      </p>
+    </section>
+
+    <section id="dashboard">
+      <h2>Dashboard</h2>
+      <p class="sub">Open <code>http://127.0.0.1:11435/</code> in any browser while the shim is running.</p>
+      <p>Live over SSE: request counts, tokens in/out, a tokens/sec sparkline, and an
+      all-time <b>"Saved at Claude API rates"</b> estimate — cache-aware, priced per
+      the model the client actually asked for. Below that, a paged table of up to
+      ~2000 recent requests:</p>
+      <ul>
+        <li><span class="dot active"></span><b>active</b> — streaming or working</li>
+        <li><span class="dot done"></span><b>done</b></li>
+        <li><span class="dot error"></span><b>error</b> — with the failure message</li>
+        <li><span class="dot canceled"></span><b>canceled</b> — the client disconnected (e.g. you hit Esc in Claude Code) before it finished</li>
+      </ul>
+      <p>Click any row for the full request/response. The "last user message"
+      preview strips Claude Code's injected <code>&lt;system-reminder&gt;</code>
+      boilerplate and interrupt markers, so it shows what was actually typed.</p>
+    </section>
+
+    <section id="config">
+      <h2>Config reference</h2>
+      <p class="sub">All environment variables, all optional.</p>
+      <div class="tscroll"><table>
+        <tr><th>Var</th><th>Default</th><th>Purpose</th></tr>
+        <tr><td><code>PORT</code></td><td>11435</td><td>listen port</td></tr>
+        <tr><td><code>OLLAMA_URL</code></td><td>http://localhost:11434</td><td>your Ollama instance</td></tr>
+        <tr><td><code>OLLAMA_MODEL</code></td><td>first in <code>/api/tags</code></td><td>default backing model</td></tr>
+        <tr><td><code>MODEL_MAP</code></td><td>haiku→7b</td><td>JSON, per-Claude-tier routing</td></tr>
+        <tr><td><code>MODEL_MAP_FILE</code></td><td>—</td><td>path to a persistent, editable JSON routing file</td></tr>
+        <tr><td><code>NUM_CTX</code></td><td>131072</td><td>Ollama context window (clamped to the model's trained max)</td></tr>
+        <tr><td><code>NUM_PREDICT_MAX</code></td><td>16384</td><td>hard cap on generated tokens (runaway guard)</td></tr>
+        <tr><td><code>NUM_BATCH</code></td><td>2048</td><td>prompt-eval (prefill) batch size</td></tr>
+        <tr><td><code>KEEP_ALIVE</code></td><td>-1 (forever)</td><td>how long Ollama keeps the model loaded</td></tr>
+        <tr><td><code>MAX_ACTIVITY</code></td><td>2000</td><td>requests retained for the dashboard</td></tr>
+        <tr><td><code>MOCK</code></td><td>off</td><td><code>1</code> = canned replies, no Ollama</td></tr>
+        <tr><td><code>MOCK_DELAY_MS</code> / <code>MOCK_TOKENS</code></td><td>15 / 60</td><td>mock pacing / response length</td></tr>
+        <tr><td><code>LOG</code></td><td>off</td><td><code>1</code> = request logging</td></tr>
+      </table></div>
+    </section>
+
+    <section id="endpoints">
+      <h2>Endpoints</h2>
+      <div class="tscroll"><table>
+        <tr><th>Endpoint</th><th>Notes</th></tr>
+        <tr><td><code>POST /v1/messages</code></td><td>streaming + non-streaming; tools, images, thinking blocks passed through</td></tr>
+        <tr><td><code>POST /v1/messages/count_tokens</code></td><td>chars/4 estimate</td></tr>
+        <tr><td><code>GET /v1/models</code>, <code>/v1/models/:id</code></td><td>advertises current Claude model ids</td></tr>
+        <tr><td><code>GET /</code></td><td>the live dashboard</td></tr>
+        <tr><td><code>GET /events</code></td><td>the dashboard's SSE feed</td></tr>
+        <tr><td><code>GET /health</code></td><td>mode, Ollama url, default model, model map</td></tr>
+      </table></div>
+    </section>
+
+    <section id="speed">
+      <h2>Speed &amp; RAM</h2>
+      <p class="sub">Generation is memory-bandwidth bound — model size sets the pace, not the frontend.</p>
+      <p>
+        <b>Keep <code>OLLAMA_NUM_PARALLEL=1</code> for interactive coding.</b> Extra
+        parallel slots split Ollama's KV cache, so consecutive turns land on empty
+        slots and re-prefill the whole conversation instead of reusing the cached
+        prefix — a huge latency difference on Claude Code's big prompts. Raise it
+        only for load-testing (the app's <b>Ollama Parallelism</b> toggle does this
+        for you).
+      </p>
+      <div class="tscroll"><table>
+        <tr><th>Box RAM</th><th>Setup</th></tr>
+        <tr><td>≥ 64&nbsp;GB</td><td><code>qwen3-vl:30b-a3b-instruct</code> as the single default, or two models resident with <code>OLLAMA_NUM_PARALLEL=4</code> for sims</td></tr>
+        <tr><td>32&nbsp;GB</td><td>only <code>qwen2.5-coder:7b</code> pulled; keep <code>NUM_CTX</code> ≤ 32768</td></tr>
+        <tr><td>16&nbsp;GB</td><td><code>qwen2.5-coder:3b</code> / <code>llama3.2:3b</code>, <code>NUM_CTX=16384</code>, or mock mode</td></tr>
+      </table></div>
+    </section>
+
+    <section id="gaps">
+      <h2>Known gaps</h2>
+      <p class="sub">Intentional, not bugs.</p>
+      <ul>
+        <li>Input token counts are estimates — Ollama has no tokenizer endpoint.</li>
+        <li>No real prompt caching / batches / files API. The dashboard's savings
+          estimate <i>models</i> caching; the API itself always reports
+          <code>cache_read_input_tokens: 0</code>.</li>
+        <li>Server tools (<code>web_search</code> etc.) in the <code>tools</code>
+          array are silently dropped.</li>
+        <li>Tool-call quality depends entirely on the Ollama model — pick one with
+          tool support.</li>
+      </ul>
+    </section>
+
+  </main>
+</div>
+
+<footer>
+  <img src="llama.png" alt="">
+  <span>FauxClaude — GPLv3</span>
+  <span class="links">
+    <a href="index.html">Home</a>
+    <a href="https://github.com/garthvh/fauxclaude">GitHub</a>
+  </span>
+</footer>
+
+</body>
+</html>
