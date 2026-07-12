@@ -1,5 +1,7 @@
 # FauxClaude Status
 
+<img src="icon.png" alt="FauxClaude llama" width="140" align="right" />
+
 A tiny status-bar llama for [FauxClaude](https://github.com/garthvh/fauxclaude).
 
 - **🦙 FauxClaude** (lit) — this window's Claude Code is routed to your local
