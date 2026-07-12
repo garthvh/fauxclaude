@@ -277,7 +277,7 @@ function track(body, inputTokens) {
     id: genId("act"), ts: Date.now(), model: body.model, ollamaModel: null,
     stream: !!body.stream, status: "active", inputTokens, outputTokens: 0,
     durationMs: null, stopReason: null, error: null,
-    preview: blockText(lastUser?.content ?? "").replace(/\s+/g, " ").slice(0, 200),
+    preview: humanText(lastUser?.content).slice(0, 200),
     userMessage: blockText(lastUser?.content ?? "").slice(0, BODY_CAP),
     responseText: "",
     _start: Date.now(), _lastPush: 0, _cacheFraction: fraction, _cacheHit: hit,
@@ -314,6 +314,19 @@ function blockText(content) {
     return content.filter((b) => b.type === "text").map((b) => b.text).join("\n");
   }
   return JSON.stringify(content);
+}
+
+// The human's actual text for the dashboard preview. Claude Code wraps each user
+// turn with injected <system-reminder>…</system-reminder> context blocks; strip
+// them so the column shows what was typed, not the boilerplate. Falls back to the
+// raw text for turns that are only injected content (e.g. tool-result turns).
+function humanText(content) {
+  const raw = blockText(content ?? "");
+  const stripped = raw
+    .replace(/<system-reminder>[\s\S]*?<\/system-reminder>/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return stripped || raw.replace(/\s+/g, " ").trim();
 }
 
 function anthropicToOllamaMessages(body) {
@@ -619,7 +632,7 @@ const MOCK_WORDS = ("the quick brown fox jumps over the lazy dog while testing "
 async function handleMock(res, body, claudeModel, msgId, inputTokens, rec) {
   rec.ollamaModel = "mock";
   const lastUser = [...(body.messages || [])].reverse().find((m) => m.role === "user");
-  const preview = blockText(lastUser?.content ?? "").slice(0, 80);
+  const preview = humanText(lastUser?.content).slice(0, 80);
   const intro = `[mock:${claudeModel}] Echoing your request ("${preview}"). `;
   const words = [intro, ...Array.from({ length: MOCK_TOKENS }, (_, i) => MOCK_WORDS[i % MOCK_WORDS.length] + " ")];
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
