@@ -2,7 +2,7 @@
   "name": "fauxclaude-status",
   "displayName": "FauxClaude Status",
   "description": "A llama in the status bar that lights up when this VS Code window is routed to your local FauxClaude shim.",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "publisher": "garthvh",
   "license": "GPL-3.0-or-later",
   "repository": {
@@ -19,16 +19,5 @@
   "activationEvents": [
     "onStartupFinished"
   ],
-  "main": "./extension.js",
-  "contributes": {
-    "icons": {
-      "fauxclaude-llama": {
-        "description": "FauxClaude llama head",
-        "default": {
-          "fontPath": "./fauxclaude-icons.ttf",
-          "fontCharacter": "\\E900"
-        }
-      }
-    }
-  }
+  "main": "./extension.js"
 }
