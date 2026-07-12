@@ -292,10 +292,16 @@ node server.mjs</pre>
       <p>Same menu, same behavior: Mock Mode, Ollama Parallelism, Open Dashboard,
       Run Claude Code in Terminal…, Open Project in VS Code…, View Log, Edit Model Map….
       Needs Node&nbsp;18+ and Ollama for Windows.</p>
-      <figure>
-        <img src="screenshots/windows-menu.png" alt="FauxClaude system tray context menu on Windows, showing the same items as the Mac menu">
-        <figcaption>The tray icon's context menu — identical items to the Mac app.</figcaption>
-      </figure>
+      <div class="shots">
+        <figure>
+          <img src="screenshots/windows-menu.png" alt="FauxClaude system tray context menu on Windows, showing the same items as the Mac menu">
+          <figcaption>The tray icon's context menu — identical items to the Mac app.</figcaption>
+        </figure>
+        <figure>
+          <img src="screenshots/windows-dashboard.png" alt="The FauxClaude dashboard running on Windows, showing 200 requests routed through Ollama with the cost-savings estimate">
+          <figcaption>The same dashboard, live on Windows against Ollama.</figcaption>
+        </figure>
+      </div>
       <pre>cd windows-app
 dotnet publish -c Release -r win-x64 --self-contained false
 <span class="c"># exe lands in bin\Release\net8.0-windows\win-x64\publish\</span></pre>
