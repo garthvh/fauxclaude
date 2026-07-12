@@ -248,11 +248,33 @@ final class ShimController: ObservableObject {
         let fm = FileManager.default
         guard let src = Bundle.main.resourceURL?.appendingPathComponent("vscode-extension"),
               fm.fileExists(atPath: src.path) else { return }
-        let dest = fm.homeDirectoryForCurrentUser
-            .appendingPathComponent(".vscode/extensions/garthvh.fauxclaude-status")
-        try? fm.createDirectory(at: dest.deletingLastPathComponent(), withIntermediateDirectories: true)
-        try? fm.removeItem(at: dest)
-        try? fm.copyItem(at: src, to: dest)
+        // Version-suffix the folder — VS Code keys extensions by folder name and
+        // mishandles in-place overwrites of an unversioned folder (stale manifest +
+        // .obsolete marks), so read the version and install into a fresh folder.
+        var version = "0.0.0"
+        if let data = try? Data(contentsOf: src.appendingPathComponent("package.json")),
+           let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+           let v = json["version"] as? String { version = v }
+
+        let extDir = fm.homeDirectoryForCurrentUser.appendingPathComponent(".vscode/extensions")
+        try? fm.createDirectory(at: extDir, withIntermediateDirectories: true)
+        if let items = try? fm.contentsOfDirectory(atPath: extDir.path) {
+            for name in items where name.hasPrefix("garthvh.fauxclaude-status") {
+                try? fm.removeItem(at: extDir.appendingPathComponent(name))
+            }
+        }
+        try? fm.copyItem(at: src, to: extDir.appendingPathComponent("garthvh.fauxclaude-status-\(version)"))
+
+        // Scrub our keys from VS Code's .obsolete cache so it won't skip the install.
+        let obs = extDir.appendingPathComponent(".obsolete")
+        if let data = try? Data(contentsOf: obs),
+           var json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+            let keys = json.keys.filter { $0.hasPrefix("garthvh.fauxclaude-status") }
+            if !keys.isEmpty {
+                for k in keys { json.removeValue(forKey: k) }
+                if let out = try? JSONSerialization.data(withJSONObject: json) { try? out.write(to: obs) }
+            }
+        }
     }
 
     func openLog() {

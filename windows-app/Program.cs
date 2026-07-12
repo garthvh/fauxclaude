@@ -374,12 +374,41 @@ internal sealed class TrayApp : ApplicationContext
     {
         var src = Path.Combine(AppContext.BaseDirectory, "vscode-extension");
         if (!Directory.Exists(src)) return;
-        var dest = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-                                ".vscode", "extensions", "garthvh.fauxclaude-status");
+        // Version-suffix the folder — VS Code keys extensions by folder name and
+        // mishandles in-place overwrites of an unversioned folder (stale manifest +
+        // .obsolete marks), so read the version and install into a fresh folder.
+        var version = "0.0.0";
         try
         {
-            if (Directory.Exists(dest)) Directory.Delete(dest, recursive: true);
-            CopyDir(src, dest);
+            using var doc = JsonDocument.Parse(File.ReadAllText(Path.Combine(src, "package.json")));
+            if (doc.RootElement.TryGetProperty("version", out var v)) version = v.GetString() ?? version;
+        }
+        catch { /* keep default */ }
+
+        var extDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+                                  ".vscode", "extensions");
+        try
+        {
+            Directory.CreateDirectory(extDir);
+            foreach (var d in Directory.GetDirectories(extDir, "garthvh.fauxclaude-status*"))
+                try { Directory.Delete(d, recursive: true); } catch { /* ignore */ }
+            CopyDir(src, Path.Combine(extDir, $"garthvh.fauxclaude-status-{version}"));
+
+            // Scrub our keys from VS Code's .obsolete cache so it won't skip the install.
+            var obs = Path.Combine(extDir, ".obsolete");
+            if (File.Exists(obs))
+            {
+                var dict = JsonSerializer.Deserialize<Dictionary<string, bool>>(File.ReadAllText(obs));
+                if (dict != null)
+                {
+                    var keys = dict.Keys.Where(k => k.StartsWith("garthvh.fauxclaude-status")).ToList();
+                    if (keys.Count > 0)
+                    {
+                        foreach (var k in keys) dict.Remove(k);
+                        File.WriteAllText(obs, JsonSerializer.Serialize(dict));
+                    }
+                }
+            }
         }
         catch { /* best effort */ }
     }
