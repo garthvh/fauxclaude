@@ -25,6 +25,8 @@
     <Content Include="..\assets\logo.png" Link="assets\logo.png" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="..\assets\favicon.png" Link="assets\favicon.png" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="..\assets\favicon.ico" Link="assets\favicon.ico" CopyToOutputDirectory="PreserveNewest" />
+    <!-- VS Code status extension, installed into ~/.vscode/extensions before launch -->
+    <Content Include="..\vscode-extension\**" LinkBase="vscode-extension" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

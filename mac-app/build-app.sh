@@ -13,6 +13,8 @@ cp ../server.mjs ../dashboard.html "$APP/Contents/Resources/"
 if [ -f ../assets/logo.png ]; then mkdir -p "$APP/Contents/Resources/assets"; cp ../assets/logo.png ../assets/llama.png ../assets/favicon.png ../assets/favicon.ico "$APP/Contents/Resources/assets/"; fi
 cp ../assets/menubar-llama.png ../assets/menubar-llama-dim.png "$APP/Contents/Resources/" 2>/dev/null || true
 cp ../assets/FauxClaude.icns "$APP/Contents/Resources/" 2>/dev/null || true
+# bundle the VS Code status extension so the app can install it before launching VS Code
+[ -d ../vscode-extension ] && cp -R ../vscode-extension "$APP/Contents/Resources/vscode-extension" || true
 codesign --force -s - "$APP"
 
 echo "Built: $(cd "$(dirname "$APP")" && pwd)/FauxClaude.app"

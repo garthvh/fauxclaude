@@ -185,6 +185,8 @@ final class ShimController: ObservableObject {
         NSApp.activate(ignoringOtherApps: true)
         guard panel.runModal() == .OK, let folder = panel.url else { return }
 
+        installStatusExtension()  // keep the status-bar llama present & up to date
+
         let vscode = "/Applications/Visual Studio Code.app/Contents/MacOS/Electron"
         guard FileManager.default.isExecutableFile(atPath: vscode) else {
             alert("VS Code not found",
@@ -205,6 +207,20 @@ final class ShimController: ObservableObject {
         do { try p.run() } catch {
             alert("Couldn't open VS Code", error.localizedDescription)
         }
+    }
+
+    // Copy the bundled FauxClaude Status extension into VS Code's shared extensions
+    // dir (refreshing it), so the local window always shows the status-bar llama.
+    // Best-effort; a running VS Code picks it up on its next start.
+    private func installStatusExtension() {
+        let fm = FileManager.default
+        guard let src = Bundle.main.resourceURL?.appendingPathComponent("vscode-extension"),
+              fm.fileExists(atPath: src.path) else { return }
+        let dest = fm.homeDirectoryForCurrentUser
+            .appendingPathComponent(".vscode/extensions/garthvh.fauxclaude-status")
+        try? fm.createDirectory(at: dest.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try? fm.removeItem(at: dest)
+        try? fm.copyItem(at: src, to: dest)
     }
 
     func openLog() {

@@ -307,6 +307,8 @@ internal sealed class TrayApp : ApplicationContext
             return;
         }
 
+        InstallStatusExtension();  // keep the status-bar llama present & up to date
+
         // Reused profile (outside any project) so it's an isolated instance that
         // stays pointed local and isn't a blank session each time.
         var profile = Path.Combine(lad, "fauxclaude", "vscode-profile");
@@ -324,6 +326,32 @@ internal sealed class TrayApp : ApplicationContext
         psi.Environment["CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC"] = "1";
         try { Process.Start(psi); }
         catch (Exception ex) { MessageBox.Show($"Couldn't open VS Code:\n{ex.Message}", "FauxClaude"); }
+    }
+
+    // Copy the bundled FauxClaude Status extension into VS Code's shared extensions
+    // dir (refreshing it) so the local window always shows the status-bar llama.
+    // Best-effort; a running VS Code picks it up on its next start.
+    private static void InstallStatusExtension()
+    {
+        var src = Path.Combine(AppContext.BaseDirectory, "vscode-extension");
+        if (!Directory.Exists(src)) return;
+        var dest = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+                                ".vscode", "extensions", "garthvh.fauxclaude-status");
+        try
+        {
+            if (Directory.Exists(dest)) Directory.Delete(dest, recursive: true);
+            CopyDir(src, dest);
+        }
+        catch { /* best effort */ }
+    }
+
+    private static void CopyDir(string src, string dest)
+    {
+        Directory.CreateDirectory(dest);
+        foreach (var f in Directory.GetFiles(src))
+            File.Copy(f, Path.Combine(dest, Path.GetFileName(f)), overwrite: true);
+        foreach (var d in Directory.GetDirectories(src))
+            CopyDir(d, Path.Combine(dest, Path.GetFileName(d)));
     }
 
     // ---- Ollama parallelism ------------------------------------------------
