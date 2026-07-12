@@ -79,7 +79,7 @@
   .status.active .dot { background: var(--series-1); animation: pulse 1.2s ease-in-out infinite; }
   .status.done .dot { background: var(--good); }
   .status.error .dot { background: var(--critical); }
-  .status.canceled .dot { background: var(--ink-muted); }
+  .status.canceled .dot { background: var(--warning); opacity: 1; animation: none; }
   .status.canceled .word { color: var(--ink-muted); }
   .status .word { color: var(--ink-2); font-size: 12px; }
   @keyframes pulse { 50% { opacity: 0.35; } }
