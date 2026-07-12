@@ -33,10 +33,14 @@ internal sealed class TrayApp : ApplicationContext
     private readonly ToolStripMenuItem _ollamaLine = new("Ollama: checking…") { Enabled = false };
     private readonly ToolStripMenuItem _toggleItem = new("Stop FauxClaude");
     private readonly ToolStripMenuItem _mockItem = new("Mock Mode (no Ollama, canned replies)") { CheckOnClick = true };
+    private readonly ToolStripMenuItem _parallelMenu = new("Ollama Parallelism");
+    private readonly ToolStripMenuItem _parInteractive = new("Interactive — 1 slot (fast, cached prefix)");
+    private readonly ToolStripMenuItem _parSimulation = new("Simulation — 4 slots (load testing)");
     private readonly System.Windows.Forms.Timer _timer = new() { Interval = 3000 };
 
     private Process? _shim;
     private bool _running;
+    private int _parallel = ReadParallel();
 
     private static string AppDataDir
     {
@@ -72,6 +76,16 @@ internal sealed class TrayApp : ApplicationContext
         _mockItem.Checked = MockMode;
         _mockItem.CheckedChanged += (_, _) => { MockMode = _mockItem.Checked; RestartShim(); };
         menu.Items.Add(_mockItem);
+
+        // OLLAMA_NUM_PARALLEL: 1 = interactive (one KV slot, so the prompt prefix
+        // stays cached and turn 2+ are fast); higher = load testing (parallel slots,
+        // but each turn re-prefills the whole prompt).
+        _parInteractive.Click += (_, _) => ApplyParallel(1);
+        _parSimulation.Click += (_, _) => ApplyParallel(4);
+        _parallelMenu.DropDownItems.Add(_parInteractive);
+        _parallelMenu.DropDownItems.Add(_parSimulation);
+        UpdateParallelMenu();
+        menu.Items.Add(_parallelMenu);
         menu.Items.Add(new ToolStripSeparator());
 
         menu.Items.Add("Open Dashboard", null, (_, _) => OpenUrl($"{ShimUrl}/"));
@@ -301,6 +315,69 @@ internal sealed class TrayApp : ApplicationContext
         psi.Environment["CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC"] = "1";
         try { Process.Start(psi); }
         catch (Exception ex) { MessageBox.Show($"Couldn't open VS Code:\n{ex.Message}", "FauxClaude"); }
+    }
+
+    // ---- Ollama parallelism ------------------------------------------------
+
+    private static int ReadParallel()
+    {
+        var s = Environment.GetEnvironmentVariable("OLLAMA_NUM_PARALLEL", EnvironmentVariableTarget.User)
+                ?? Environment.GetEnvironmentVariable("OLLAMA_NUM_PARALLEL");
+        return int.TryParse(s, out var v) && v > 0 ? v : 1;
+    }
+
+    private void UpdateParallelMenu()
+    {
+        _parInteractive.Checked = _parallel == 1;
+        _parSimulation.Checked = _parallel == 4;
+    }
+
+    // Persist OLLAMA_NUM_PARALLEL and restart Ollama so `serve` re-reads it. 1 keeps
+    // the KV prefix cache for fast interactive turns; raise it for load testing. The
+    // restart runs off the UI thread (kill needs a beat before the relaunch rebinds).
+    private void ApplyParallel(int n)
+    {
+        if (n == _parallel) return;
+        _parallel = n;
+        UpdateParallelMenu();
+        // Persist to the user environment (survives reboot / future launches).
+        Environment.SetEnvironmentVariable("OLLAMA_NUM_PARALLEL", n.ToString(), EnvironmentVariableTarget.User);
+
+        Task.Run(() =>
+        {
+            // Kill the tray app + serve (and their child runner), then relaunch with
+            // the new value in the launched process's environment.
+            foreach (var name in new[] { "ollama app", "ollama" })
+                foreach (var p in Process.GetProcessesByName(name))
+                    try { p.Kill(entireProcessTree: true); } catch { /* already gone */ }
+            Thread.Sleep(1500);
+
+            var lad = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+            string? ollamaApp = null;
+            foreach (var c in new[]
+            {
+                Path.Combine(lad, "Programs", "Ollama", "ollama app.exe"),
+                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "Ollama", "ollama app.exe"),
+            })
+                if (File.Exists(c)) { ollamaApp = c; break; }
+
+            if (ollamaApp != null)
+            {
+                var psi = new ProcessStartInfo(ollamaApp) { UseShellExecute = false };
+                psi.Environment["OLLAMA_NUM_PARALLEL"] = n.ToString();
+                try { Process.Start(psi); }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"Set OLLAMA_NUM_PARALLEL={n}, but couldn't relaunch Ollama:\n{ex.Message}\n\n" +
+                                    "Start Ollama manually to apply.", "FauxClaude");
+                }
+            }
+            else
+            {
+                MessageBox.Show($"Set OLLAMA_NUM_PARALLEL={n}. Restart Ollama to apply " +
+                                "(couldn't find ollama app.exe to relaunch it).", "FauxClaude");
+            }
+        });
     }
 
     private void ExitApp()
