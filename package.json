@@ -1,0 +1,14 @@
+{
+  "name": "fauxclaude",
+  "version": "1.0.0",
+  "private": true,
+  "description": "100% locally sourced Claude — impersonates the Anthropic Messages API in front of a local Ollama instance.",
+  "type": "module",
+  "main": "server.mjs",
+  "engines": {
+    "node": ">=18"
+  },
+  "optionalDependencies": {
+    "pdf-to-img": "4.5.0"
+  }
+}

@@ -10,3 +10,7 @@ windows-app/obj/
 shim.log
 *.log
 .DS_Store
+
+# optional PDF-vision dependency (npm install pdf-to-img to enable the fallback
+# rasterizer) — poppler is the primary path and needs no npm install at all
+node_modules/

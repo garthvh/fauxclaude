@@ -297,7 +297,7 @@ prints the URL on launch.
 
 | Endpoint | Notes |
 |---|---|
-| `POST /v1/messages` | streaming (SSE) + non-streaming; system prompts; multi-turn; tool use (`tools`, `tool_use`, `tool_result`, `is_error`); base64 images; `stop_sequences`, `temperature`, `max_tokens`; thinking blocks passed through when the Ollama model emits them |
+| `POST /v1/messages` | streaming (SSE) + non-streaming; system prompts; multi-turn; tool use (`tools`, `tool_use`, `tool_result`, `is_error`); base64 images; base64 PDF `document` blocks (rasterized to page images — see below); `stop_sequences`, `temperature`, `max_tokens`; thinking blocks passed through when the Ollama model emits them |
 | `POST /v1/messages/count_tokens` | chars/4 estimate |
 | `GET /v1/models`, `GET /v1/models/:id` | advertises current Claude model ids |
 | `GET /` | live dashboard (see above) |
@@ -306,6 +306,28 @@ prints the URL on launch.
 
 Errors use the real Anthropic envelope (`{"type":"error","error":{...}}`). Usage numbers come
 from Ollama's `prompt_eval_count` / `eval_count` when available.
+
+## PDF documents
+
+Ollama's vision models take images only, so a Claude `document` block (a base64 PDF —
+the shape Claude Code's document-extraction workloads send) is rasterized to page
+images and fed through the same path as an `image` block, capped at the first
+`PDF_MAX_PAGES` pages. Two rasterizers, tried in order:
+
+1. **poppler's `pdftoppm`**, if installed — no npm dependency at all.
+   `brew install poppler` (macOS) / `apt install poppler-utils` (Linux) / part of most
+   Windows poppler builds.
+2. **`pdf-to-img`** (optional npm dependency, pinned to `4.5.0` — the last version
+   supporting Node 18; 5.x+ needs Node 20+) — `npm install` in this repo pulls it in,
+   for boxes without poppler. No system tool required, but it depends on `canvas`
+   (a native module with prebuilt binaries for common platforms).
+
+Neither installed → the document is dropped (today's behavior before this feature),
+but with a clear one-time log line telling you how to enable it, instead of silently
+answering from the prompt text alone. **Extraction quality depends on the backing
+model being vision-capable** (`qwen3-vl`, `qwen2.5vl`, `granite3.2-vision` — not
+`llama3.2-vision`, which errors on some Ollama builds with `unknown model
+architecture: 'mllama'`).
 
 ## Configuration
 
@@ -321,6 +343,8 @@ from Ollama's `prompt_eval_count` / `eval_count` when available.
 | `NUM_BATCH` | `2048` | prompt-eval (prefill) batch size |
 | `KEEP_ALIVE` | `-1` | how long Ollama keeps the model loaded (`-1` = forever, `0` = unload now, or a duration like `30m`) |
 | `MAX_ACTIVITY` | `2000` | requests retained server-side for the dashboard |
+| `PDF_MAX_PAGES` | `5` | pages rasterized per PDF `document` block |
+| `PDF_RENDER_DPI` | `150` | DPI used to rasterize PDF pages to images |
 | `MOCK` | off | `1` = built-in mock, no Ollama |
 | `MOCK_DELAY_MS` / `MOCK_TOKENS` | `15` / `60` | mock pacing / response length |
 | `LOG` | off | `1` = request logging |
@@ -345,6 +369,14 @@ Or use `hey`/`k6`/`vegeta` against `POST /v1/messages` with a non-streaming body
 - Server tools (`web_search` etc.) in the `tools` array are silently dropped.
 - Tool-call quality depends entirely on the Ollama model — pick one with tool support
   (llama3.1+, qwen2.5, mistral-nemo) if your frontend relies on tool use.
+- PDF `document` blocks need poppler or `npm install` (the `pdf-to-img` optional
+  dependency) to rasterize — see [PDF documents](#pdf-documents). Non-`application/pdf`
+  document media types aren't supported.
+- `npm install`'s transitive `tar`/`@mapbox/node-pre-gyp` (via the optional `canvas`
+  native dependency) has open high-severity advisories with no non-breaking fix
+  available yet; it's install-time-only (fetches a prebuilt binary from a trusted
+  source) and not exercised while the shim is running. Skip `npm install` entirely if
+  you only use the poppler rasterizer.
 
 ## License
 

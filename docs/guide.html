@@ -118,7 +118,7 @@
   }
   figure figcaption { color: var(--gray); font-size: 13px; margin-top: 8px; }
   .shots { display: flex; gap: 20px; flex-wrap: wrap; align-items: flex-start; }
-  .shots figure { flex: 0 0 auto; margin: 18px 0; }
+  .shots figure { flex: 0 1 auto; min-width: 0; margin: 18px 0; }
 
   .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
   .dot.done { background: #0ca30c; }
@@ -171,6 +171,7 @@
     <h4>Reference</h4>
     <a href="#config">Config</a>
     <a href="#endpoints">Endpoints</a>
+    <a href="#pdf">PDF documents</a>
     <a href="#speed">Speed &amp; RAM</a>
     <a href="#gaps">Known gaps</a>
   </aside>
@@ -388,6 +389,8 @@ claude-local.cmd -p "explain this repo"</pre>
         <tr><td><code>NUM_BATCH</code></td><td>2048</td><td>prompt-eval (prefill) batch size</td></tr>
         <tr><td><code>KEEP_ALIVE</code></td><td>-1 (forever)</td><td>how long Ollama keeps the model loaded</td></tr>
         <tr><td><code>MAX_ACTIVITY</code></td><td>2000</td><td>requests retained for the dashboard</td></tr>
+        <tr><td><code>PDF_MAX_PAGES</code></td><td>5</td><td>pages rasterized per PDF <code>document</code> block</td></tr>
+        <tr><td><code>PDF_RENDER_DPI</code></td><td>150</td><td>DPI used to rasterize PDF pages to images</td></tr>
         <tr><td><code>MOCK</code></td><td>off</td><td><code>1</code> = canned replies, no Ollama</td></tr>
         <tr><td><code>MOCK_DELAY_MS</code> / <code>MOCK_TOKENS</code></td><td>15 / 60</td><td>mock pacing / response length</td></tr>
         <tr><td><code>LOG</code></td><td>off</td><td><code>1</code> = request logging</td></tr>
@@ -398,13 +401,43 @@ claude-local.cmd -p "explain this repo"</pre>
       <h2>Endpoints</h2>
       <div class="tscroll"><table>
         <tr><th>Endpoint</th><th>Notes</th></tr>
-        <tr><td><code>POST /v1/messages</code></td><td>streaming + non-streaming; tools, images, thinking blocks passed through</td></tr>
+        <tr><td><code>POST /v1/messages</code></td><td>streaming + non-streaming; tools, images, PDF documents, thinking blocks passed through</td></tr>
         <tr><td><code>POST /v1/messages/count_tokens</code></td><td>chars/4 estimate</td></tr>
         <tr><td><code>GET /v1/models</code>, <code>/v1/models/:id</code></td><td>advertises current Claude model ids</td></tr>
         <tr><td><code>GET /</code></td><td>the live dashboard</td></tr>
         <tr><td><code>GET /events</code></td><td>the dashboard's SSE feed</td></tr>
         <tr><td><code>GET /health</code></td><td>mode, Ollama url, default model, model map</td></tr>
       </table></div>
+    </section>
+
+    <section id="pdf">
+      <h2>PDF documents</h2>
+      <p class="sub">Ollama's vision models take images only — a PDF is rasterized to page images first.</p>
+      <p>
+        A Claude <code>document</code> block (base64 <code>application/pdf</code> — the
+        shape Claude Code's document-extraction workloads send) is rasterized to page
+        images and fed through the same path as an <code>image</code> block, capped at
+        the first <code>PDF_MAX_PAGES</code> pages. Two rasterizers, tried in order:
+      </p>
+      <ol>
+        <li><b>poppler's <code>pdftoppm</code></b>, if installed — no npm dependency at
+          all. <code>brew install poppler</code> (macOS) / <code>apt install
+          poppler-utils</code> (Linux).</li>
+        <li><b><code>pdf-to-img</code></b> (optional npm dependency, pinned to
+          <code>4.5.0</code> — the last version supporting Node 18; 5.x+ needs Node 20+)
+          — <code>npm install</code> in the repo pulls it in, for boxes without poppler.
+          Depends on <code>canvas</code> (a native module with prebuilt binaries for
+          common platforms).</li>
+      </ol>
+      <div class="callout">
+        Neither installed → the document is dropped (as before this feature), with a
+        clear one-time log line telling you how to enable it, instead of silently
+        answering from the prompt text alone. <b>Extraction quality depends on the
+        backing model being vision-capable</b> — <code>qwen3-vl</code>,
+        <code>qwen2.5vl</code>, <code>granite3.2-vision</code> — not
+        <code>llama3.2-vision</code>, which errors on some Ollama builds with
+        <code>unknown model architecture: 'mllama'</code>.
+      </div>
     </section>
 
     <section id="speed">
@@ -438,6 +471,15 @@ claude-local.cmd -p "explain this repo"</pre>
           array are silently dropped.</li>
         <li>Tool-call quality depends entirely on the Ollama model — pick one with
           tool support.</li>
+        <li>PDF <code>document</code> blocks need poppler or <code>npm install</code>
+          (the <code>pdf-to-img</code> optional dependency) to rasterize — see
+          <a href="#pdf">PDF documents</a>. Non-<code>application/pdf</code> document
+          media types aren't supported.</li>
+        <li><code>npm install</code>'s transitive <code>tar</code> (via the optional
+          <code>canvas</code> native dependency) has open high-severity advisories with
+          no non-breaking fix yet; it's install-time-only (fetches a prebuilt binary
+          from a trusted source), not exercised while the shim runs. Skip
+          <code>npm install</code> entirely if you only use the poppler rasterizer.</li>
       </ul>
     </section>
 

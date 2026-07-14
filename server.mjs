@@ -1,12 +1,13 @@
 #!/usr/bin/env node
 // FauxClaude — 100% locally sourced Claude. Pretends to be the Anthropic Messages API, backed by a
-// local Ollama instance (or a built-in mock). Zero dependencies, Node 18+.
+// local Ollama instance (or a built-in mock). Zero required dependencies, Node 18+ — the one
+// optional npm package (pdf-to-img) is only a PDF-rasterization fallback behind poppler.
 //
 //   PORT=11435 OLLAMA_URL=http://localhost:11434 OLLAMA_MODEL=llama3.2 node server.mjs
 //   MOCK=1 node server.mjs        # no Ollama needed — canned streaming responses
 //
 // Implements:
-//   POST /v1/messages               (streaming + non-streaming, tools, images)
+//   POST /v1/messages               (streaming + non-streaming, tools, images, PDF documents)
 //   POST /v1/messages/count_tokens  (chars/4 estimate)
 //   GET  /v1/models, /v1/models/:id
 //
@@ -18,10 +19,18 @@
 //   NUM_CTX         ollama context window in tokens (default 32768 — Ollama's own
 //                   default of ~4k silently truncates Claude Code's system prompt)
 //   KEEP_ALIVE      how long ollama keeps the model loaded (default "30m")
+//   PDF_MAX_PAGES   pages rasterized per PDF document block (default 5)
+//   PDF_RENDER_DPI  DPI used to rasterize PDF pages to images (default 150)
 //   MOCK            "1" to bypass Ollama entirely
 //   MOCK_DELAY_MS   per-token delay in mock mode    (default 15)
 //   MOCK_TOKENS     tokens per mock response        (default 60)
 //   LOG             "1" for request logging
+//
+// PDF documents (Claude `document` blocks, base64 application/pdf) are rasterized to
+// page images and sent through the same path as `image` blocks — see rasterizePdfPages()
+// below. Needs poppler (`pdftoppm`) installed, or `npm install` for the pdf-to-img
+// fallback; without either, PDFs are dropped with a one-time log message (unchanged
+// text/image/tool behavior otherwise).
 
 import http from "node:http";
 import crypto from "node:crypto";
@@ -29,6 +38,10 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
+
+const execFileP = promisify(execFile);
 
 const DASHBOARD_HTML = path.join(path.dirname(fileURLToPath(import.meta.url)), "dashboard.html");
 
@@ -60,6 +73,12 @@ const NUM_BATCH = Number(process.env.NUM_BATCH || 2048);
 // harmless truncated reply. 16k is far above any normal coding response; raise
 // NUM_PREDICT_MAX for genuinely huge single outputs.
 const NUM_PREDICT_MAX = Number(process.env.NUM_PREDICT_MAX || 16384);
+// Ollama's vision models take images only, never PDFs — so a Claude `document`
+// block (a base64 PDF) is rasterized to page images before being sent, capped at
+// the first N pages (latency/VRAM) and rendered at a DPI legible for field
+// extraction without producing huge images.
+const PDF_MAX_PAGES = Number(process.env.PDF_MAX_PAGES || 5);
+const PDF_RENDER_DPI = Number(process.env.PDF_RENDER_DPI || 150);
 // How long Ollama keeps the model loaded. Default -1 = forever, so you never pay a
 // cold reload after an idle gap (the model load is the worst local-model latency).
 // Override with a duration ("30m") or seconds ("0" unloads immediately). Numeric
@@ -342,7 +361,75 @@ function humanText(content) {
   return tail || raw.replace(/\s+/g, " ").trim();
 }
 
-function anthropicToOllamaMessages(body) {
+// ----------------------------------------------------------- PDF rasterization
+//
+// Ollama's multimodal models accept images only — a PDF `document` block sent
+// straight through gets silently ignored by the model. Rasterize each page to a
+// PNG instead and feed those into the same `images[]` array the `image` block
+// case already uses, so the existing image -> Ollama path carries them through
+// unchanged. Two rasterizers, tried in order:
+//   1. poppler's `pdftoppm`, if installed — fast, no npm dependency.
+//   2. `pdf-to-img` (npm, optional dependency) — pure download, no system tool
+//      required, for boxes without poppler. Pinned to 4.5.0, the last version
+//      supporting Node 18 (this project's stated minimum); 5.x+ requires Node 20+.
+// Neither present -> fail soft: the document is dropped (today's behavior) but a
+// clear one-time log line says why, instead of silently answering from the
+// prompt text alone.
+let popplerAvailable; // memoized Promise<boolean>, checked once
+function hasPoppler() {
+  if (popplerAvailable === undefined) {
+    popplerAvailable = execFileP("pdftoppm", ["-v"]).then(() => true, () => false);
+  }
+  return popplerAvailable;
+}
+
+async function rasterizeWithPoppler(base64Data, maxPages) {
+  const dir = await fs.promises.mkdtemp(path.join(os.tmpdir(), "fauxclaude-pdf-"));
+  try {
+    const inPath = path.join(dir, "in.pdf");
+    const outPrefix = path.join(dir, "page");
+    await fs.promises.writeFile(inPath, Buffer.from(base64Data, "base64"));
+    await execFileP("pdftoppm", ["-png", "-r", String(PDF_RENDER_DPI), "-f", "1", "-l", String(maxPages), inPath, outPrefix]);
+    const files = (await fs.promises.readdir(dir)).filter((f) => f.endsWith(".png")).sort();
+    const images = [];
+    for (const f of files) images.push((await fs.promises.readFile(path.join(dir, f))).toString("base64"));
+    return images;
+  } finally {
+    fs.promises.rm(dir, { recursive: true, force: true }).catch(() => {});
+  }
+}
+
+async function rasterizeWithPdfToImg(base64Data, maxPages) {
+  const { pdf } = await import("pdf-to-img"); // optional dependency — throws if not installed
+  const doc = await pdf(`data:application/pdf;base64,${base64Data}`, { scale: PDF_RENDER_DPI / 72 });
+  const images = [];
+  const pageCount = Math.min(doc.length, maxPages);
+  for (let i = 1; i <= pageCount; i++) images.push((await doc.getPage(i)).toString("base64"));
+  return images;
+}
+
+let pdfRasterizerWarned = false;
+async function rasterizePdfPages(base64Data, maxPages = PDF_MAX_PAGES) {
+  if (await hasPoppler()) {
+    try { return await rasterizeWithPoppler(base64Data, maxPages); }
+    catch (err) { log("poppler pdftoppm failed on this PDF, trying pdf-to-img:", err.message); }
+  }
+  try {
+    return await rasterizeWithPdfToImg(base64Data, maxPages);
+  } catch (err) {
+    if (!pdfRasterizerWarned) {
+      pdfRasterizerWarned = true;
+      console.error(
+        "[fauxclaude] PDF document received but no rasterizer available — install poppler " +
+        "(brew install poppler / apt install poppler-utils) or `npm install pdf-to-img@4.5.0` " +
+        "for PDF vision support. Ignoring the document for now."
+      );
+    }
+    return [];
+  }
+}
+
+async function anthropicToOllamaMessages(body) {
   const out = [];
   const sys = systemToString(body.system);
   if (sys) out.push({ role: "system", content: sys });
@@ -368,6 +455,13 @@ function anthropicToOllamaMessages(body) {
           break;
         case "image":
           if (block.source?.type === "base64") images.push(block.source.data);
+          break;
+        case "document":
+          if (block.source?.type === "base64" && block.source?.media_type === "application/pdf") {
+            images.push(...(await rasterizePdfPages(block.source.data)));
+          } else {
+            texts.push(`[unsupported block: document (${block.source?.media_type || "unknown"})]`);
+          }
           break;
         case "tool_use":
           toolCalls.push({ function: { name: block.name, arguments: block.input || {} } });
@@ -481,7 +575,7 @@ async function handleOllama(res, body, claudeModel, msgId, inputTokens, rec, ac)
   lastOllamaModel = ollamaModel;
   const ollamaReq = {
     model: ollamaModel,
-    messages: anthropicToOllamaMessages(body),
+    messages: await anthropicToOllamaMessages(body),
     tools: anthropicToolsToOllama(body.tools),
     stream: !!body.stream,
     keep_alive: KEEP_ALIVE,
